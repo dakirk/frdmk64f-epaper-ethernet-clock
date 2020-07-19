@@ -30,8 +30,15 @@
 #include "board.h"
 
 #include "fsl_device_registers.h"
+#include "fsl_debug_console.h"
+#include "fsl_dspi.h"
+#include "fsl_gpio.h"
+
 #include "pin_mux.h"
 #include "clock_config.h"
+
+#include "eink_control.h"
+#include "font12.cpp"
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
@@ -94,6 +101,13 @@ void SysTick_Handler(void)
 {
     time_isr();
 
+    //delay stuff
+    if (eink_systickCounter != 0U)
+    {
+        eink_systickCounter--;
+    }
+
+    //time stuff
     struct tm* timeinfo = sntp_format_time(global_time);
 
     // make sure system time has been initialized
@@ -116,14 +130,6 @@ void SysTick_Handler(void)
     	g_systickCounter++;
     }
 
-}
-
-void SysTick_DelayTicks(uint32_t n)
-{
-    g_systickCounter = n;
-    while (g_systickCounter != 0U)
-    {
-    }
 }
 
 /*!
@@ -251,6 +257,9 @@ int main(void)
         }
     }
 
+    spiInit();
+    einkInit();
+
     time_init();
 
     IP4_ADDR(&netif_ipaddr, 0U, 0U, 0U, 0U);
@@ -299,7 +308,7 @@ int main(void)
 
     sntp_init();
 
-    struct tm * timeinfo;
+    // eink setup
 
     while (1)
     {
@@ -314,7 +323,6 @@ int main(void)
 
         //PRINTF("sec: %d; usec: %d", sec, usec);
 
-        timeinfo = sntp_format_time(global_time);
         //PRINTF("%02d:%02d\r\n", timeinfo->tm_hour, timeinfo->tm_min);
 
     }

@@ -57,8 +57,11 @@ source/lwip_dhcp_bm.o source/lwip_dhcp_bm.d: ../source/lwip_dhcp_bm.c \
  /Users/David/Desktop/College_Stuff/EC544_Projects/Workspace/frdmk64f_lwip_dhcp_bm/board/clock_config.h \
  /Users/David/Desktop/College_Stuff/EC544_Projects/Workspace/frdmk64f_lwip_dhcp_bm/drivers/fsl_gpio.h \
  /Users/David/Desktop/College_Stuff/EC544_Projects/Workspace/frdmk64f_lwip_dhcp_bm/drivers/fsl_port.h \
+ /Users/David/Desktop/College_Stuff/EC544_Projects/Workspace/frdmk64f_lwip_dhcp_bm/drivers/fsl_dspi.h \
  /Users/David/Desktop/College_Stuff/EC544_Projects/Workspace/frdmk64f_lwip_dhcp_bm/board/pin_mux.h \
- /Users/David/Desktop/College_Stuff/EC544_Projects/Workspace/frdmk64f_lwip_dhcp_bm/board/clock_config.h
+ /Users/David/Desktop/College_Stuff/EC544_Projects/Workspace/frdmk64f_lwip_dhcp_bm/board/clock_config.h \
+ ../source/eink_control.h ../source/epdmacros.h ../source/fonts.h \
+ ../source/font12.cpp
 
 /Users/David/Desktop/College_Stuff/EC544_Projects/Workspace/frdmk64f_lwip_dhcp_bm/lwip/src/include/lwip/opt.h:
 
@@ -176,6 +179,16 @@ source/lwip_dhcp_bm.o source/lwip_dhcp_bm.d: ../source/lwip_dhcp_bm.c \
 
 /Users/David/Desktop/College_Stuff/EC544_Projects/Workspace/frdmk64f_lwip_dhcp_bm/drivers/fsl_port.h:
 
+/Users/David/Desktop/College_Stuff/EC544_Projects/Workspace/frdmk64f_lwip_dhcp_bm/drivers/fsl_dspi.h:
+
 /Users/David/Desktop/College_Stuff/EC544_Projects/Workspace/frdmk64f_lwip_dhcp_bm/board/pin_mux.h:
 
 /Users/David/Desktop/College_Stuff/EC544_Projects/Workspace/frdmk64f_lwip_dhcp_bm/board/clock_config.h:
+
+../source/eink_control.h:
+
+../source/epdmacros.h:
+
+../source/fonts.h:
+
+../source/font12.cpp:
