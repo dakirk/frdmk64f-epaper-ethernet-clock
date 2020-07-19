@@ -1,0 +1,14 @@
+fsl_debug_console.c:342:10:DbgConsole_ReadOneCharacter	24	static
+fsl_debug_console.c:409:5:DbgConsole_SendData	24	static
+fsl_debug_console.c:476:5:DbgConsole_SendDataReliable	24	static
+fsl_debug_console.c:552:5:DbgConsole_ReadLine	24	static
+fsl_debug_console.c:612:5:DbgConsole_ReadCharacter	24	static
+fsl_debug_console.c:645:13:DbgConsole_PrintCallback	32	static
+fsl_debug_console.c:667:10:DbgConsole_Init	64	static
+fsl_debug_console.c:791:10:DbgConsole_Deinit	8	static
+fsl_debug_console.c:828:40:DbgConsole_Flush	4	static
+fsl_debug_console.c:867:5:DbgConsole_Printf	152	static
+fsl_debug_console.c:890:5:DbgConsole_Putchar	16	static
+fsl_debug_console.c:897:5:DbgConsole_Scanf	40	static
+fsl_debug_console.c:915:5:DbgConsole_BlockingPrintf	152	static
+fsl_debug_console.c:983:5:DbgConsole_Getchar	16	static
