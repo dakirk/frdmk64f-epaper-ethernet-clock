@@ -272,20 +272,20 @@ int einkDisplayFrameFromBufferNonBlocking(const unsigned char* frame_buffer_blac
 
     if (frame_buffer_black != NULL) {
         einkSendCommand(DATA_START_TRANSMISSION_1);
-        SysTick_DelayTicks(2U);
+        //SysTick_DelayTicks(2U);
         for(i = 0; i < EPD_WIDTH * EPD_HEIGHT / 8; i++) {
             einkSendData(pgm_read_byte(&frame_buffer_black[i]));
             //PRINTF("%x ", pgm_read_byte(&frame_buffer_black[i]));
         }
-        SysTick_DelayTicks(2U);
+        //SysTick_DelayTicks(2U);
     }
     if (frame_buffer_red != NULL) {
         einkSendCommand(DATA_START_TRANSMISSION_2);
-        SysTick_DelayTicks(2U);
+        //SysTick_DelayTicks(2U);
         for(i = 0; i < EPD_WIDTH * EPD_HEIGHT / 8; i++) {
             einkSendData(pgm_read_byte(&frame_buffer_red[i]));
         }
-        SysTick_DelayTicks(2U);
+        //SysTick_DelayTicks(2U);
     }
     einkSendCommand(DISPLAY_REFRESH);
 

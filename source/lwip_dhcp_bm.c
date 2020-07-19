@@ -79,7 +79,7 @@
  ******************************************************************************/
 
 volatile uint32_t g_systickCounter;
-
+unsigned char imgBuffer[5808];
 
 /*******************************************************************************
  * Code
@@ -120,6 +120,13 @@ void SysTick_Handler(void)
     		if (timeinfo->tm_sec == 0)
         	{
         		PRINTF("Updating screen\r\n");
+
+        		char timeBuf[6];
+        		sprintf(timeBuf, "%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min);
+        		paintDrawString(imgBuffer, 0, 0, timeBuf, &Font12, COLORED, 7);
+        		einkDisplayFrameFromBufferNonBlocking(imgBuffer, NULL);
+        		paintClear(imgBuffer, UNCOLORED);
+
         		g_systickCounter = 0;
         	}
 
@@ -259,6 +266,8 @@ int main(void)
 
     spiInit();
     einkInit();
+
+    einkClearFrame();
 
     time_init();
 
