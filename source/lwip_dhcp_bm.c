@@ -78,6 +78,15 @@ volatile uint32_t g_systickCounter;
  * Code
  ******************************************************************************/
 
+struct tm * sntp_format_time(s32_t sec)
+{
+  time_t ut = global_time;
+  //ut = (u32_t)((u32_t)sec + ((u32_t)2085978496L)) - (3600 * 4);
+
+  return gmtime(&ut);
+  //PRINTF("timeStrBuf: %s\r\n", timeStrBuf);
+}
+
 /*!
  * @brief Interrupt service for SysTick timer.
  */
@@ -85,10 +94,24 @@ void SysTick_Handler(void)
 {
     time_isr();
 
-	if (g_systickCounter != 0U)
-	{
-		g_systickCounter--;
-	}
+    struct tm* timeinfo = sntp_format_time(global_time);
+
+    if (global_time != 0) {
+
+    	if (g_systickCounter > 0 && g_systickCounter % 1000 == 0) {
+        	if (timeinfo->tm_sec == 0)
+        	{
+        		PRINTF("Updating screen\r\n");
+        		g_systickCounter = 0;
+        	}
+
+			PRINTF("%02d:%02d:%02d\r\n", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+			global_time++;
+		}
+
+    	g_systickCounter++;
+    }
+
 }
 
 void SysTick_DelayTicks(uint32_t n)
@@ -170,15 +193,6 @@ static int print_dhcp_state(struct netif *netif)
         }
     }
     return 1; //not finished
-}
-
-struct tm * sntp_format_time(s32_t sec)
-{
-  time_t ut;
-  ut = (u32_t)((u32_t)sec + ((u32_t)2085978496L)) - (3600 * 4);
-
-  return gmtime(&ut);
-  //PRINTF("timeStrBuf: %s\r\n", timeStrBuf);
 }
 
 //void sntp_set_system_time(u32_t sec)
@@ -297,7 +311,7 @@ int main(void)
         //PRINTF("sec: %d; usec: %d", sec, usec);
 
         timeinfo = sntp_format_time(global_time);
-        PRINTF("%02d:%02d\r\n", timeinfo->tm_hour, timeinfo->tm_min);
+        //PRINTF("%02d:%02d\r\n", timeinfo->tm_hour, timeinfo->tm_min);
 
     }
 }

@@ -1,7 +1,7 @@
 core_cm4.h:1807:22:__NVIC_SetPriority	16	static
 core_cm4.h:2014:26:SysTick_Config	16	static
-lwip_dhcp_bm.c:84:6:SysTick_Handler	8	static
-lwip_dhcp_bm.c:94:6:SysTick_DelayTicks	16	static
-lwip_dhcp_bm.c:107:12:print_dhcp_state	24	static
-lwip_dhcp_bm.c:175:13:sntp_format_time	24	static
-lwip_dhcp_bm.c:205:5:main	128	static
+lwip_dhcp_bm.c:81:13:sntp_format_time	24	static
+lwip_dhcp_bm.c:93:6:SysTick_Handler	16	static
+lwip_dhcp_bm.c:117:6:SysTick_DelayTicks	16	static
+lwip_dhcp_bm.c:130:12:print_dhcp_state	24	static
+lwip_dhcp_bm.c:219:5:main	128	static
