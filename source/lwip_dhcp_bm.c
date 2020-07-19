@@ -96,10 +96,14 @@ void SysTick_Handler(void)
 
     struct tm* timeinfo = sntp_format_time(global_time);
 
+    // make sure system time has been initialized
     if (global_time != 0) {
 
+    	// if a second has passed
     	if (g_systickCounter > 0 && g_systickCounter % 1000 == 0) {
-        	if (timeinfo->tm_sec == 0)
+
+    		// if it's a new minute, refresh the screen
+    		if (timeinfo->tm_sec == 0)
         	{
         		PRINTF("Updating screen\r\n");
         		g_systickCounter = 0;
