@@ -48,6 +48,9 @@ extern "C" {
    The mode has to be set before calling sntp_init(). */
 #define SNTP_OPMODE_POLL            0
 #define SNTP_OPMODE_LISTENONLY      1
+
+extern int global_time;
+
 void sntp_setoperatingmode(u8_t operating_mode);
 u8_t sntp_getoperatingmode(void);
 

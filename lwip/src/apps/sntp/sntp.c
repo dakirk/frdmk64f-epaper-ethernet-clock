@@ -114,6 +114,8 @@
 /* Number of seconds between 1970 and Feb 7, 2036 06:28:16 UTC (epoch 1) */
 #define DIFF_SEC_1970_2036          ((u32_t)2085978496L)
 
+int global_time = 0;
+
 /** Convert NTP timestamp fraction to microseconds.
  */
 #ifndef SNTP_FRAC_TO_US
@@ -327,6 +329,8 @@ sntp_process(const struct sntp_timestamps *timestamps)
   LWIP_UNUSED_ARG(frac); /* might be unused if only seconds are set */
   LWIP_DEBUGF(SNTP_DEBUG_TRACE, ("sntp_process: %s, %" U32_F " us\n",
                                  sntp_format_time(sec), SNTP_FRAC_TO_US(frac)));
+
+  global_time = sec;
 }
 
 /**

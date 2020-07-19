@@ -12,6 +12,7 @@
  ******************************************************************************/
 
 #include <time.h>
+#include <string.h>
 
 #include "lwip/opt.h"
 
@@ -171,23 +172,32 @@ static int print_dhcp_state(struct netif *netif)
     return 1; //not finished
 }
 
-void sntp_set_system_time(u32_t sec)
+struct tm * sntp_format_time(s32_t sec)
 {
-  char buf[32];
-  struct tm current_time_val;
-  time_t current_time = (time_t)sec;
+  time_t ut;
+  ut = (u32_t)((u32_t)sec + ((u32_t)2085978496L)) - (3600 * 4);
 
-  current_time_val = *(localtime(&current_time));
-
-//#ifdef _MSC_VER
-//  localtime_s(&current_time_val, &current_time);
-//#else
-//  localtime_r(&current_time, &current_time_val);
-//#endif
-
-  strftime(buf, sizeof(buf), "%d.%m.%Y %H:%M:%S", &current_time_val);
-  PRINTF("SNTP time: %s\n", buf);
+  return gmtime(&ut);
+  //PRINTF("timeStrBuf: %s\r\n", timeStrBuf);
 }
+
+//void sntp_set_system_time(u32_t sec)
+//{
+//  char buf[32];
+//  struct tm current_time_val;
+//  time_t current_time = (time_t)sec;
+//
+//  current_time_val = *(localtime(&current_time));
+//
+////#ifdef _MSC_VER
+////  localtime_s(&current_time_val, &current_time);
+////#else
+////  localtime_r(&current_time, &current_time_val);
+////#endif
+//
+//  strftime(buf, sizeof(buf), "%d.%m.%Y %H:%M:%S", &current_time_val);
+//  PRINTF("SNTP time: %s\n", buf);
+//}
 
 /*!
  * @brief Main function.
@@ -260,12 +270,18 @@ int main(void)
 //  #endif /* LWIP_IPV4 */
 //  #endif /* LWIP_DHCP */
 
-    ip4_addr_t ntp_ipaddr;
-    IP4_ADDR(&ntp_ipaddr, 66U, 96U, 98U, 9U);
+    ip4_addr_t ntp_pool_ipaddr;
+    ip4_addr_t ntp_google_ipaddr;
 
-    sntp_setserver(0, &ntp_ipaddr);
+    IP4_ADDR(&ntp_pool_ipaddr, 66U, 96U, 98U, 9U);
+    IP4_ADDR(&ntp_google_ipaddr, 216U, 239U, 35U, 4U);
+
+    sntp_setserver(0, &ntp_pool_ipaddr);
+    sntp_setserver(1, &ntp_google_ipaddr);
 
     sntp_init();
+
+    struct tm * timeinfo;
 
     while (1)
     {
@@ -277,6 +293,12 @@ int main(void)
 
         /* Print DHCP progress */
         print_dhcp_state(&netif);
+
+        //PRINTF("sec: %d; usec: %d", sec, usec);
+
+        timeinfo = sntp_format_time(global_time);
+        PRINTF("%02d:%02d\r\n", timeinfo->tm_hour, timeinfo->tm_min);
+
     }
 }
 #endif
