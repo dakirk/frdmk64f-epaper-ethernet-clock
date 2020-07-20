@@ -118,8 +118,17 @@ void SysTick_Handler(void)
 
     		// if it's a new minute, refresh the screen
     		if (timeinfo->tm_sec == 0)
-        	{
+    		{
         		PRINTF("Updating screen\r\n");
+
+        		//fully clear screen every 10 minutes
+        		if (timeinfo->tm_min % 30 == 0) {
+        			einkClearFrame();
+        			einkDisplayFrameFromSRAM();
+        			einkDisplayFrameFromSRAM();
+        			einkDisplayFrameFromSRAM();
+        			global_time += 10; // refresh takes about 3 seconds, so we compensate
+        		}
 
         		char timeBuf[6];
         		sprintf(timeBuf, "%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min);
@@ -268,6 +277,9 @@ int main(void)
     einkInit();
 
     einkClearFrame();
+	einkDisplayFrameFromSRAM();
+	einkDisplayFrameFromSRAM();
+	einkDisplayFrameFromSRAM();
 
     time_init();
 
