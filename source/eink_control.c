@@ -13,6 +13,7 @@ uint8_t masterTxData[TRANSFER_SIZE] = {0U};
 
 volatile uint32_t eink_systickCounter;
 
+//fast lookup tables from https://github.com/pskowronek/epaper-clock-and-more/blob/master/epds/epd2in7b_fast_lut.py
 const unsigned char lut_vcom_dc[] =
 {
 	0x00    ,0x00,

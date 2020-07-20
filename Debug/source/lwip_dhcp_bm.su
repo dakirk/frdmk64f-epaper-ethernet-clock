@@ -1,6 +1,8 @@
 core_cm4.h:1807:22:__NVIC_SetPriority	16	static
 core_cm4.h:2014:26:SysTick_Config	16	static
 lwip_dhcp_bm.c:88:13:sntp_format_time	24	static
-lwip_dhcp_bm.c:100:6:SysTick_Handler	40	static
-lwip_dhcp_bm.c:156:12:print_dhcp_state	24	static
-lwip_dhcp_bm.c:245:5:main	120	static
+lwip_dhcp_bm.c:97:13:getDayOfWeek	16	static
+lwip_dhcp_bm.c:118:13:getMonth	16	static
+lwip_dhcp_bm.c:152:6:SysTick_Handler	64	static
+lwip_dhcp_bm.c:213:12:print_dhcp_state	24	static
+lwip_dhcp_bm.c:302:5:main	120	static

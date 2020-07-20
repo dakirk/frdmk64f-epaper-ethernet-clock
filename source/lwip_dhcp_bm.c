@@ -94,6 +94,58 @@ struct tm * sntp_format_time(s32_t sec)
   //PRINTF("timeStrBuf: %s\r\n", timeStrBuf);
 }
 
+const char* getDayOfWeek(int day) {
+	switch(day) {
+	case 0:
+		return "Sunday";
+	case 1:
+		return "Monday";
+	case 2:
+		return "Tuesday";
+	case 3:
+		return "Wednesday";
+	case 4:
+		return "Thursday";
+	case 5:
+		return "Friday";
+	case 6:
+		return "Saturday";
+	default:
+		return "NULLday";
+	}
+}
+
+const char* getMonth(int day) {
+	switch(day) {
+	case 0:
+		return "Jan";
+	case 1:
+		return "Feb";
+	case 2:
+		return "Mar";
+	case 3:
+		return "Apr";
+	case 4:
+		return "May";
+	case 5:
+		return "Jun";
+	case 6:
+		return "Jul";
+	case 7:
+		return "Aug";
+	case 8:
+		return "Sep";
+	case 9:
+		return "Oct";
+	case 10:
+		return "Nov";
+	case 11:
+		return "Dec";
+	default:
+		return "Smr";
+	}
+}
+
 /*!
  * @brief Interrupt service for SysTick timer.
  */
@@ -131,8 +183,13 @@ void SysTick_Handler(void)
         		}
 
         		char timeBuf[6];
+        		char dateBuf[20];
+
         		sprintf(timeBuf, "%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min);
-        		paintDrawString(imgBuffer, 0, 0, timeBuf, &Font12, COLORED, 7);
+        		sprintf(dateBuf, "%s, %s %02d", getDayOfWeek(timeinfo->tm_wday), getMonth(timeinfo->tm_mon), timeinfo->tm_mday);
+
+        		paintDrawString(imgBuffer, 5, 0, dateBuf, &Font12, COLORED, 2);
+        		paintDrawString(imgBuffer, 0, 20, timeBuf, &Font12, COLORED, 7);
         		einkDisplayFrameFromBufferNonBlocking(imgBuffer, NULL);
         		paintClear(imgBuffer, UNCOLORED);
 
