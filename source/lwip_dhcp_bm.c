@@ -216,7 +216,7 @@ void SysTick_Handler(void)
 
         		paintDrawString(imgBuffer,
         						strlen(timeBuf) * 7 * digitScale - 9,
-								25, (timeinfo->tm_hour > 12 ? "PM" : "AM"),
+								25, (timeinfo->tm_hour > 11 ? "PM" : "AM"),
 								&Font12,
 								COLORED,
 								2
