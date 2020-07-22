@@ -80,6 +80,7 @@
 
 volatile uint32_t g_systickCounter;
 unsigned char imgBuffer[5808];
+unsigned char colorBuffer[5808];
 
 /*******************************************************************************
  * Code
@@ -221,10 +222,20 @@ void SysTick_Handler(void)
 								2
 				);
 
+        		//draw date info
         		paintDrawString(imgBuffer, 4, 0, dateBuf, &Font12, COLORED, 2);
+
+        		//draw time
         		paintDrawString(imgBuffer, -3, 20, timeBuf, &Font12, COLORED, digitScale);
-        		einkDisplayFrameFromBufferNonBlocking(imgBuffer, NULL);
+
+        		//draw time drop shadow
+        		paintDrawString(colorBuffer, -1, 22, timeBuf, &Font12, COLORED, digitScale);
+        		paintDrawString(colorBuffer, -3, 20, timeBuf, &Font12, UNCOLORED, digitScale);
+
+        		//push to display
+        		einkDisplayFrameFromBufferNonBlocking(imgBuffer, colorBuffer);
         		paintClear(imgBuffer, UNCOLORED);
+        		paintClear(colorBuffer, UNCOLORED);
 
         		g_systickCounter = 0;
         	}
