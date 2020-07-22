@@ -85,15 +85,31 @@ unsigned char imgBuffer[5808];
  * Code
  ******************************************************************************/
 
-struct tm * sntp_format_time(s32_t sec)
-{
-  time_t ut = global_time;
-  //ut = (u32_t)((u32_t)sec + ((u32_t)2085978496L)) - (3600 * 4);
+/*!
+ * @brief Function to convert international (24-hour time) to American-style 12-hour time
+ * @param intlTime the 24-hour notation in hours
+ * @return the 12-hour notation in hours
+ */
+int getTwelveHourTime(int intlTime) {
 
-  return gmtime(&ut);
-  //PRINTF("timeStrBuf: %s\r\n", timeStrBuf);
+	int twelveHourTime;
+
+	if (intlTime > 12) {
+		twelveHourTime = intlTime - 12;
+	} else if (intlTime == 0) {
+		twelveHourTime = 12;
+	} else {
+		twelveHourTime = intlTime;
+	}
+
+	return twelveHourTime;
 }
 
+/*!
+ * @brief Gets the day of the week as a string, given a number
+ * @param day the numerical representation of the day of the week (0-6)
+ * @return a string for the name of the day of the week
+ */
 const char* getDayOfWeek(int day) {
 	switch(day) {
 	case 0:
@@ -115,8 +131,13 @@ const char* getDayOfWeek(int day) {
 	}
 }
 
-const char* getMonth(int day) {
-	switch(day) {
+/*!
+ * Gets the month as a 3-character string, for brevity/to save screen real estate
+ * @param month the numerical representation of the month (0-11)
+ * @return the string version of the month
+ */
+const char* getMonth(int month) {
+	switch(month) {
 	case 0:
 		return "Jan";
 	case 1:
@@ -160,7 +181,7 @@ void SysTick_Handler(void)
     }
 
     //time stuff
-    struct tm* timeinfo = sntp_format_time(global_time);
+    struct tm* timeinfo = gmtime(&global_time);
 
     // make sure system time has been initialized
     if (global_time != 0) {
@@ -172,6 +193,8 @@ void SysTick_Handler(void)
     		if (timeinfo->tm_sec == 0)
     		{
         		PRINTF("Updating screen\r\n");
+
+        		int digitScale = 7;
 
         		//fully clear screen every 10 minutes
         		if (timeinfo->tm_min % 30 == 0) {
@@ -185,11 +208,21 @@ void SysTick_Handler(void)
         		char timeBuf[6];
         		char dateBuf[20];
 
-        		sprintf(timeBuf, "%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min);
+        		int twelveHourTime = getTwelveHourTime(timeinfo->tm_hour);
+
+        		sprintf(timeBuf, "%d:%02d", twelveHourTime, timeinfo->tm_min);
         		sprintf(dateBuf, "%s, %s %02d", getDayOfWeek(timeinfo->tm_wday), getMonth(timeinfo->tm_mon), timeinfo->tm_mday);
 
-        		paintDrawString(imgBuffer, 5, 0, dateBuf, &Font12, COLORED, 2);
-        		paintDrawString(imgBuffer, 0, 20, timeBuf, &Font12, COLORED, 7);
+        		paintDrawString(imgBuffer,
+        						strlen(timeBuf) * 7 * digitScale - 9,
+								25, (timeinfo->tm_hour > 12 ? "PM" : "AM"),
+								&Font12,
+								COLORED,
+								2
+				);
+
+        		paintDrawString(imgBuffer, 4, 0, dateBuf, &Font12, COLORED, 2);
+        		paintDrawString(imgBuffer, -3, 20, timeBuf, &Font12, COLORED, digitScale);
         		einkDisplayFrameFromBufferNonBlocking(imgBuffer, NULL);
         		paintClear(imgBuffer, UNCOLORED);
 
@@ -277,24 +310,6 @@ static int print_dhcp_state(struct netif *netif)
     }
     return 1; //not finished
 }
-
-//void sntp_set_system_time(u32_t sec)
-//{
-//  char buf[32];
-//  struct tm current_time_val;
-//  time_t current_time = (time_t)sec;
-//
-//  current_time_val = *(localtime(&current_time));
-//
-////#ifdef _MSC_VER
-////  localtime_s(&current_time_val, &current_time);
-////#else
-////  localtime_r(&current_time, &current_time_val);
-////#endif
-//
-//  strftime(buf, sizeof(buf), "%d.%m.%Y %H:%M:%S", &current_time_val);
-//  PRINTF("SNTP time: %s\n", buf);
-//}
 
 /*!
  * @brief Main function.

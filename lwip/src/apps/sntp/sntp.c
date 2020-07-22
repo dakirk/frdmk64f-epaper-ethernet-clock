@@ -114,7 +114,7 @@
 /* Number of seconds between 1970 and Feb 7, 2036 06:28:16 UTC (epoch 1) */
 #define DIFF_SEC_1970_2036          ((u32_t)2085978496L)
 
-int global_time = 0;
+time_t global_time = 0;
 
 /** Convert NTP timestamp fraction to microseconds.
  */
