@@ -13,9 +13,10 @@ eink_control.c:230:6:einkClearFrame	16	static
 eink_control.c:258:5:einkDisplayFrameFromBufferNonBlocking	24	static
 eink_control.c:301:6:einkDisplayFrameFromBufferBlocking	24	static
 eink_control.c:337:6:einkDisplayFrameFromSRAM	8	static
-eink_control.c:347:6:einkInit	8	static
-eink_control.c:425:6:paintClear	24	static
-eink_control.c:440:6:paintDrawAbsolutePixel	24	static
-eink_control.c:462:6:paintDrawPixel	32	static
-eink_control.c:498:6:paintDrawChar	56	static
-eink_control.c:526:6:paintDrawString	56	static
+eink_control.c:344:6:einkSetRefreshMode	16	static
+eink_control.c:359:6:einkInit	8	static
+eink_control.c:437:6:paintClear	24	static
+eink_control.c:452:6:paintDrawAbsolutePixel	24	static
+eink_control.c:474:6:paintDrawPixel	32	static
+eink_control.c:510:6:paintDrawChar	56	static
+eink_control.c:538:6:paintDrawString	56	static

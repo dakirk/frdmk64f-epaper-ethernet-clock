@@ -54,6 +54,11 @@
 #define ACTIVE_PROGRAM                              0xA1
 #define READ_OTP_DATA                               0xA2
 
+#define FAST_REFRESH 1
+#define FULL_REFRESH 0
+#define FAST_REFRESH_SETTING 0xaf
+#define FULL_REFRESH_SETTING 0x8f
+
 //const unsigned char lut_vcom_dc[] =
 //{
 //0x00, 0x00,

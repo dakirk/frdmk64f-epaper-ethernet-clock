@@ -341,6 +341,18 @@ void einkDisplayFrameFromSRAM() {
 
 }
 
+void einkSetRefreshMode(int refreshMode) {
+
+	if (refreshMode == FAST_REFRESH) {
+		einkSendCommand(PANEL_SETTING);
+		einkSendData(FAST_REFRESH_SETTING);
+		einkSetLut();
+	} else {
+		einkSendCommand(PANEL_SETTING);
+		einkSendData(FULL_REFRESH_SETTING);
+	}
+}
+
 /**
  * @brief: Initializes the SPI connection with the epd2in7b display
  */
@@ -355,7 +367,7 @@ void einkInit() {
 
 	PRINTF("Configuring panel\r\n");
 	einkSendCommand(PANEL_SETTING);
-	einkSendData(0xaf);        //KW-BF   KWR-AF    BWROTP 0f
+	einkSendData(FULL_REFRESH_SETTING);        //KW-BF   KWR-AF    BWROTP 0f (originally 0xaf)
 
 	PRINTF("Setting PLL control\r\n");
 	einkSendCommand(PLL_CONTROL);

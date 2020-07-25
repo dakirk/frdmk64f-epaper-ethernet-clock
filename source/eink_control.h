@@ -68,6 +68,7 @@ void einkSetLut();
 
 // E-ink control functions (these are the ones to use)
 void einkInit();
+void einkSetRefreshMode(int refreshMode);
 void einkClearFrame();
 void einkDisplayFrameFromBufferBlocking(const unsigned char* frame_buffer_black, const unsigned char* frame_buffer_red);
 int  einkDisplayFrameFromBufferNonBlocking(const unsigned char* frame_buffer_black, const unsigned char* frame_buffer_red);
