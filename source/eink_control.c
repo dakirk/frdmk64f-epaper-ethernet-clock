@@ -341,6 +341,11 @@ void einkDisplayFrameFromSRAM() {
 
 }
 
+/**
+ * @brief: Sets a refresh mode for the display. Currently supports "full" (the built-in lookup table)
+ * and "fast" (a modified lookup table for fast refreshing, found here: https://github.com/pskowronek/epaper-clock-and-more/blob/master/epds/epd2in7b_fast_lut.py
+ * @param refreshMode The refresh mode to be enabled (FAST_REFRESH or FULL_REFRESH)
+ */
 void einkSetRefreshMode(int refreshMode) {
 
 	if (refreshMode == FAST_REFRESH) {

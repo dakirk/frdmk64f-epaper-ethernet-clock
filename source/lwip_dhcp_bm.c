@@ -197,23 +197,21 @@ void SysTick_Handler(void)
 
         		int digitScale = 7;
 
-        		//at midnight, do a thorough refresh
+        		// at midnight, do a full refresh
         		if (timeinfo->tm_hour == 0 && timeinfo->tm_min == 0) {
         			einkSetRefreshMode(FULL_REFRESH);
         			einkClearFrame();
         			einkDisplayFrameFromSRAM();
-        			global_time += 15;
+        			global_time += 15; // full refresh takes a while, so we compensate
         			einkSetRefreshMode(FAST_REFRESH);
         		}
-        		//fully clear screen every 30 minutes
+        		// clear screen every 30 minutes
         		else if (timeinfo->tm_min % 30 == 0) {
-        			//einkSetRefreshMode(FULL_REFRESH);
         			einkClearFrame();
         			einkDisplayFrameFromSRAM();
         			einkDisplayFrameFromSRAM();
         			einkDisplayFrameFromSRAM();
-        			global_time += 10; // refresh takes a while, so we compensate
-        			//einkSetRefreshMode(FAST_REFRESH);
+        			global_time += 10; // repeated fast refreshing takes a while, so we compensate
         		}
 
         		char timeBuf[6];
