@@ -136,7 +136,7 @@ const char* getDayOfWeek(int day) {
 }
 
 /*!
- * Gets the month as a 3-character string, for brevity/to save screen real estate
+ * @brief Gets the month as a 3-character string, for brevity/to save screen real estate
  * @param month the numerical representation of the month (0-11)
  * @return the string version of the month
  */
@@ -171,7 +171,7 @@ const char* getMonth(int month) {
 	}
 }
 
-//copied from https://stackoverflow.com/questions/5590429/calculating-daylight-saving-time-from-only-date/5590518
+// copied from https://stackoverflow.com/questions/5590429/calculating-daylight-saving-time-from-only-date/5590518
 bool isDst(struct tm* time_info) {
 
 	int month = time_info->tm_mon + 1; // +1 to make 1 represent January
@@ -182,23 +182,23 @@ bool isDst(struct tm* time_info) {
 	if (month < 3 || month > 11)
 		return false;
 
-	//April to October are in
+	// April to October are in
 	if (month > 3 && month < 11)
 		return true;
 
 	int previousSunday = day - dow;
 
-	//In march, we are DST if our previous Sunday was on or after the 8th.
+	// In march, we are DST if our previous Sunday was on or after the 8th.
 	if (month == 3)
 		return previousSunday >= 8;
 
-	//In November we must be before the first Sunday to be DST.
-	//That means the previous Sunday must be before the 1st.
+	// In November we must be before the first Sunday to be DST.
+	// That means the previous Sunday must be before the 1st.
 	return previousSunday <= 0;
 }
 
-/**
- * Gets localized time, based on a given timezone (I'm ignoring the localtime function
+/*!
+ * @brief Gets localized time, based on a given timezone (I'm ignoring the localtime function
  * because I've been unable to get the TZ environment variable to be read properly so far)
  * @param utc the time in UTC
  * @param timezone the timezone, as a difference from UTC (ex: EST is -5)
@@ -468,9 +468,6 @@ int main(void)
     sntp_setserver(1, &ntp_google_ipaddr);
 
     sntp_init();
-
-    //timezone setup
-    //setenv("TZ", "EST+5EDT,M3.2.0/2,M11.1.0/2", 1);
 
     while (1)
     {
