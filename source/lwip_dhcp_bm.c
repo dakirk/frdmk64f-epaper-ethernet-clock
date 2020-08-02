@@ -13,6 +13,7 @@
 
 #include <time.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "lwip/opt.h"
 
@@ -69,6 +70,8 @@
 /*! @brief Network interface initialization function. */
 #define EXAMPLE_NETIF_INIT_FN ethernetif0_init
 #endif /* EXAMPLE_NETIF_INIT_FN */
+
+#define EST -5 //Eastern standard time is -5 GMT
 
 /*******************************************************************************
  * Prototypes
@@ -168,8 +171,48 @@ const char* getMonth(int month) {
 	}
 }
 
-time_t getLocalizedTime(time_t utc) {
-	return utc - (3600 * 4);
+//copied from https://stackoverflow.com/questions/5590429/calculating-daylight-saving-time-from-only-date/5590518
+bool isDst(struct tm* time_info) {
+
+	int month = time_info->tm_mon + 1; // +1 to make 1 represent January
+	int day = time_info->tm_mday;
+	int dow = time_info->tm_wday + 1; // +1 to make 1 represent Sunday
+
+	// January, February, and December are out.
+	if (month < 3 || month > 11)
+		return false;
+
+	//April to October are in
+	if (month > 3 && month < 11)
+		return true;
+
+	int previousSunday = day - dow;
+
+	//In march, we are DST if our previous Sunday was on or after the 8th.
+	if (month == 3)
+		return previousSunday >= 8;
+
+	//In November we must be before the first Sunday to be DST.
+	//That means the previous Sunday must be before the 1st.
+	return previousSunday <= 0;
+}
+
+/**
+ * Gets localized time, based on a given timezone (I'm ignoring the localtime function
+ * because I've been unable to get the TZ environment variable to be read properly so far)
+ * @param utc the time in UTC
+ * @param timezone the timezone, as a difference from UTC (ex: EST is -5)
+ * @return a tm structure with the localized time
+ */
+struct tm* getLocalizedTime(time_t utc, int timezone) {
+
+	time_t local_time = utc + (3600 * timezone);
+	struct tm* gmt_info = gmtime(&local_time);
+
+	// Determine if it's daylight savings right now
+	local_time = utc + (3600 * (timezone + isDst(gmt_info)));
+
+	return gmtime(&local_time);
 }
 
 /*!
@@ -185,13 +228,12 @@ void SysTick_Handler(void)
         eink_systickCounter--;
     }
 
-    time_t local_time = getLocalizedTime(global_time);
-
     //time stuff
-    struct tm* timeinfo = gmtime(&local_time);
 
     // make sure system time has been initialized
     if (global_time != 0) {
+
+        struct tm* timeinfo = getLocalizedTime(global_time, EST);
 
     	// if a second has passed
     	if (g_systickCounter > 0 && g_systickCounter % 1000 == 0) {
@@ -371,6 +413,7 @@ int main(void)
         }
     }
 
+    // eink setup
     spiInit();
     einkInit();
 
@@ -426,7 +469,8 @@ int main(void)
 
     sntp_init();
 
-    // eink setup
+    //timezone setup
+    //setenv("TZ", "EST+5EDT,M3.2.0/2,M11.1.0/2", 1);
 
     while (1)
     {

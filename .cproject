@@ -384,6 +384,9 @@
 		</cconfiguration>
 		<cconfiguration id="com.crt.advproject.config.exe.release.2097082186">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.crt.advproject.config.exe.release.2097082186" moduleId="org.eclipse.cdt.core.settings" name="Release">
+				<macros>
+					<stringMacro name="TZ" type="VALUE_TEXT" value="EST+5EDT,M3.2.0/2,M11.1.0/2"/>
+				</macros>
 				<externalSettings/>
 				<extensions>
 					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
