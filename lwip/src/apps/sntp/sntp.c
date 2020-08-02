@@ -330,7 +330,7 @@ sntp_process(const struct sntp_timestamps *timestamps)
   LWIP_DEBUGF(SNTP_DEBUG_TRACE, ("sntp_process: %s, %" U32_F " us\n",
                                  sntp_format_time(sec), SNTP_FRAC_TO_US(frac)));
 
-  global_time = (u32_t)((u32_t)sec + DIFF_SEC_1970_2036) - (3600 * 4);
+  global_time = (u32_t)((u32_t)sec + DIFF_SEC_1970_2036);
 }
 
 /**

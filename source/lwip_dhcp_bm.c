@@ -168,6 +168,10 @@ const char* getMonth(int month) {
 	}
 }
 
+time_t getLocalizedTime(time_t utc) {
+	return utc - (3600 * 4);
+}
+
 /*!
  * @brief Interrupt service for SysTick timer.
  */
@@ -181,8 +185,10 @@ void SysTick_Handler(void)
         eink_systickCounter--;
     }
 
+    time_t local_time = getLocalizedTime(global_time);
+
     //time stuff
-    struct tm* timeinfo = gmtime(&global_time);
+    struct tm* timeinfo = gmtime(&local_time);
 
     // make sure system time has been initialized
     if (global_time != 0) {
@@ -241,13 +247,14 @@ void SysTick_Handler(void)
         		paintDrawString(colorBuffer, -3, 20, timeBuf, &Font12, UNCOLORED, digitScale);
 
         		//push to display
-        		einkDisplayFrameFromBufferNonBlocking(imgBuffer, colorBuffer);
+        		einkDisplayFrameFromBufferNonBlocking(imgBuffer, NULL);
         		paintClear(imgBuffer, UNCOLORED);
         		paintClear(colorBuffer, UNCOLORED);
 
         		g_systickCounter = 0;
         	}
 
+    	    PRINTF("Daylight savings: %d\r\n", timeinfo->tm_isdst);
 			PRINTF("%02d:%02d:%02d\r\n", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 			global_time++;
 		}
