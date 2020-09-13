@@ -433,6 +433,14 @@ int main(void)
     netif_set_default(&netif);
     netif_set_up(&netif);
 
+#if LWIP_DHCP
+  sntp_servermode_dhcp(1); /* get SNTP server via DHCP */
+#else /* LWIP_DHCP */
+#if LWIP_IPV4
+  sntp_setserver(0, netif_ip_gw4(netif_default));
+#endif /* LWIP_IPV4 */
+#endif /* LWIP_DHCP */
+
     dhcp_start(&netif);
 
     PRINTF("\r\n************************************************\r\n");
@@ -450,14 +458,8 @@ int main(void)
     PRINTF("Attempting SNTP init\r\n");
 
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
-//  #if LWIP_DHCP
-//    sntp_servermode_dhcp(1); /* get SNTP server via DHCP */
-//  #else /* LWIP_DHCP */
-//  #if LWIP_IPV4
-//    sntp_setserver(0, netif_ip_gw4(netif_default));
-//  #endif /* LWIP_IPV4 */
-//  #endif /* LWIP_DHCP */
 
+    /*
     ip4_addr_t ntp_pool_ipaddr;
     ip4_addr_t ntp_google_ipaddr;
 
@@ -466,6 +468,7 @@ int main(void)
 
     sntp_setserver(0, &ntp_pool_ipaddr);
     sntp_setserver(1, &ntp_google_ipaddr);
+    */
 
     sntp_init();
 
