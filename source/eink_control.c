@@ -334,10 +334,16 @@ void einkDisplayFrameFromBufferBlocking(const unsigned char* frame_buffer_black,
 /**
  * @brief: This displays the frame data from SRAM
  */
-void einkDisplayFrameFromSRAM() {
+void einkDisplayFrameFromSRAMBlocking() {
 
 	einkSendCommand(DISPLAY_REFRESH);
 	einkWaitUntilIdle();
+
+}
+
+void einkDisplayFrameFromSRAMNonBlocking() {
+
+	einkSendCommand(DISPLAY_REFRESH);
 
 }
 

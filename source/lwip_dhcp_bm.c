@@ -82,6 +82,7 @@
  ******************************************************************************/
 
 volatile uint32_t g_systickCounter;
+volatile bool g_SecsFlag        = false;
 unsigned char imgBuffer[5808];
 unsigned char colorBuffer[5808];
 
@@ -215,6 +216,73 @@ struct tm* getLocalizedTime(time_t utc, int timezone) {
 	return gmtime(&local_time);
 }
 
+void updateTime() {
+
+	struct tm* timeinfo = getLocalizedTime(global_time, EST);
+
+	// if it's a new minute, refresh the screen
+	if (timeinfo->tm_sec == 0)
+	{
+		PRINTF("Updating screen\r\n");
+
+		int digitScale = 7;
+
+		// at midnight, do a full refresh
+		if (timeinfo->tm_hour == 0 && timeinfo->tm_min == 0) {
+			einkSetRefreshMode(FULL_REFRESH);
+			einkClearFrame();
+			einkDisplayFrameFromSRAMBlocking();
+			global_time += 15; // full refresh takes a while, so we compensate
+			einkSetRefreshMode(FAST_REFRESH);
+		}
+		// clear screen every 30 minutes
+		else if (timeinfo->tm_min % 30 == 0) {
+			einkClearFrame();
+			einkDisplayFrameFromSRAMBlocking();
+			einkDisplayFrameFromSRAMBlocking();
+			einkDisplayFrameFromSRAMBlocking();
+			global_time += 10; // repeated fast refreshing takes a while, so we compensate
+		}
+
+		char timeBuf[6];
+		char dateBuf[20];
+
+		int twelveHourTime = getTwelveHourTime(timeinfo->tm_hour);
+
+		sprintf(timeBuf, "%d:%02d", twelveHourTime, timeinfo->tm_min);
+		sprintf(dateBuf, "%s, %s %02d", getDayOfWeek(timeinfo->tm_wday), getMonth(timeinfo->tm_mon), timeinfo->tm_mday);
+
+		paintDrawString(imgBuffer,
+						strlen(timeBuf) * 7 * digitScale - 9,
+						25, (timeinfo->tm_hour > 11 ? "PM" : "AM"),
+						&Font12,
+						COLORED,
+						2
+		);
+
+		//draw date info
+		paintDrawString(imgBuffer, 4, 0, dateBuf, &Font12, COLORED, 2);
+
+		//draw time
+		paintDrawString(imgBuffer, -3, 20, timeBuf, &Font12, COLORED, digitScale);
+
+		//draw time drop shadow
+		paintDrawString(colorBuffer, -1, 22, timeBuf, &Font12, COLORED, digitScale);
+		paintDrawString(colorBuffer, -3, 20, timeBuf, &Font12, UNCOLORED, digitScale);
+
+		//push to display
+		einkDisplayFrameFromBufferNonBlocking(imgBuffer, NULL);
+		paintClear(imgBuffer, UNCOLORED);
+		paintClear(colorBuffer, UNCOLORED);
+
+		g_systickCounter = 0;
+	}
+
+    PRINTF("Daylight savings: %d\r\n", timeinfo->tm_isdst);
+	PRINTF("%02d:%02d:%02d\r\n", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+	global_time++;
+}
+
 /*!
  * @brief Interrupt service for SysTick timer.
  */
@@ -233,77 +301,14 @@ void SysTick_Handler(void)
     // make sure system time has been initialized
     if (global_time != 0) {
 
-        struct tm* timeinfo = getLocalizedTime(global_time, EST);
-
     	// if a second has passed
     	if (g_systickCounter > 0 && g_systickCounter % 1000 == 0) {
 
-    		// if it's a new minute, refresh the screen
-    		if (timeinfo->tm_sec == 0)
-    		{
-        		PRINTF("Updating screen\r\n");
-
-        		int digitScale = 7;
-
-        		// at midnight, do a full refresh
-        		if (timeinfo->tm_hour == 0 && timeinfo->tm_min == 0) {
-        			einkSetRefreshMode(FULL_REFRESH);
-        			einkClearFrame();
-        			einkDisplayFrameFromSRAM();
-        			global_time += 15; // full refresh takes a while, so we compensate
-        			einkSetRefreshMode(FAST_REFRESH);
-        		}
-        		// clear screen every 30 minutes
-        		else if (timeinfo->tm_min % 30 == 0) {
-        			einkClearFrame();
-        			einkDisplayFrameFromSRAM();
-        			einkDisplayFrameFromSRAM();
-        			einkDisplayFrameFromSRAM();
-        			global_time += 10; // repeated fast refreshing takes a while, so we compensate
-        		}
-
-        		char timeBuf[6];
-        		char dateBuf[20];
-
-        		int twelveHourTime = getTwelveHourTime(timeinfo->tm_hour);
-
-        		sprintf(timeBuf, "%d:%02d", twelveHourTime, timeinfo->tm_min);
-        		sprintf(dateBuf, "%s, %s %02d", getDayOfWeek(timeinfo->tm_wday), getMonth(timeinfo->tm_mon), timeinfo->tm_mday);
-
-        		paintDrawString(imgBuffer,
-        						strlen(timeBuf) * 7 * digitScale - 9,
-								25, (timeinfo->tm_hour > 11 ? "PM" : "AM"),
-								&Font12,
-								COLORED,
-								2
-				);
-
-        		//draw date info
-        		paintDrawString(imgBuffer, 4, 0, dateBuf, &Font12, COLORED, 2);
-
-        		//draw time
-        		paintDrawString(imgBuffer, -3, 20, timeBuf, &Font12, COLORED, digitScale);
-
-        		//draw time drop shadow
-        		paintDrawString(colorBuffer, -1, 22, timeBuf, &Font12, COLORED, digitScale);
-        		paintDrawString(colorBuffer, -3, 20, timeBuf, &Font12, UNCOLORED, digitScale);
-
-        		//push to display
-        		einkDisplayFrameFromBufferNonBlocking(imgBuffer, NULL);
-        		paintClear(imgBuffer, UNCOLORED);
-        		paintClear(colorBuffer, UNCOLORED);
-
-        		g_systickCounter = 0;
-        	}
-
-    	    PRINTF("Daylight savings: %d\r\n", timeinfo->tm_isdst);
-			PRINTF("%02d:%02d:%02d\r\n", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
-			global_time++;
+    		g_SecsFlag = true;
 		}
 
     	g_systickCounter++;
     }
-
 }
 
 /*!
@@ -418,7 +423,7 @@ int main(void)
     einkInit();
 
     einkClearFrame();
-	einkDisplayFrameFromSRAM();
+	einkDisplayFrameFromSRAMNonBlocking();
 	einkSetRefreshMode(FAST_REFRESH);
 
     time_init();
@@ -439,6 +444,7 @@ int main(void)
     PRINTF(" DHCP example\r\n");
     PRINTF("************************************************\r\n");
 
+    // Wait for DHCP startup
     while (print_dhcp_state(&netif)) {
         /* Poll the driver, get any outstanding frames */
         ethernetif_input(&netif);
@@ -469,6 +475,8 @@ int main(void)
 
     sntp_init();
 
+	einkWaitUntilIdle();
+
     while (1)
     {
         /* Poll the driver, get any outstanding frames */
@@ -479,6 +487,11 @@ int main(void)
 
         /* Print DHCP progress */
         print_dhcp_state(&netif);
+
+        if (g_SecsFlag) {
+        	g_SecsFlag = false;
+        	updateTime();
+        }
 
         //PRINTF("sec: %d; usec: %d", sec, usec);
 

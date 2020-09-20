@@ -73,7 +73,8 @@ void einkClearFrame();
 void einkDisplayFrameFromBufferBlocking(const unsigned char* frame_buffer_black, const unsigned char* frame_buffer_red);
 int  einkDisplayFrameFromBufferNonBlocking(const unsigned char* frame_buffer_black, const unsigned char* frame_buffer_red);
 
-void einkDisplayFrameFromSRAM();
+void einkDisplayFrameFromSRAMBlocking();
+void einkDisplayFrameFromSRAMNonBlocking();
 
 // Paint functions, for modifying the image buffer before passing it through SPI
 void paintClear(unsigned char* image, int colored);
