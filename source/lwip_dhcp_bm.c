@@ -258,6 +258,9 @@ struct tm* getLocalizedTime(time_t utc, int timezone) {
 	return gmtime(&local_time);
 }
 
+/*!
+ * @brief Callback method to get time from the RTC and draw the display with time and date
+ */
 void updateTime() {
 
     rtc_datetime_t date;
@@ -405,19 +408,12 @@ static int print_dhcp_state(struct netif *netif)
  */
 int main(void)
 {
-    struct netif netif;
+
+/** Board setup ************************************************************************************************/
+
 #if defined(FSL_FEATURE_SOC_LPC_ENET_COUNT) && (FSL_FEATURE_SOC_LPC_ENET_COUNT > 0)
     mem_range_t non_dma_memory[] = NON_DMA_MEMORY_ARRAY;
 #endif /* FSL_FEATURE_SOC_LPC_ENET_COUNT */
-    ip4_addr_t netif_ipaddr, netif_netmask, netif_gw;
-    ethernetif_config_t enet_config = {
-        .phyAddress = EXAMPLE_PHY_ADDRESS,
-        .clockName  = EXAMPLE_CLOCK_NAME,
-        .macAddress = configMAC_ADDR,
-#if defined(FSL_FEATURE_SOC_LPC_ENET_COUNT) && (FSL_FEATURE_SOC_LPC_ENET_COUNT > 0)
-        .non_dma_memory = non_dma_memory,
-#endif /* FSL_FEATURE_SOC_LPC_ENET_COUNT */
-    };
 
     SYSMPU_Type *base = SYSMPU;
     BOARD_InitPins();
@@ -425,6 +421,8 @@ int main(void)
     BOARD_InitDebugConsole();
     /* Disable SYSMPU. */
     base->CESR &= ~SYSMPU_CESR_VLD_MASK;
+
+/** Timer setup ************************************************************************************************/
 
     /* Set systick reload value to generate 1ms interrupt */
     if (SysTick_Config(SystemCoreClock / 1000U))
@@ -434,12 +432,27 @@ int main(void)
         }
     }
 
-    // eink setup
+/** E-ink setup ************************************************************************************************/
+
     spiInit();
     einkInit();
 
     einkClearFrame();
 	einkDisplayFrameFromSRAMNonBlocking();
+
+/** Ethernet setup *********************************************************************************************/
+
+	struct netif netif;
+
+    ip4_addr_t netif_ipaddr, netif_netmask, netif_gw;
+    ethernetif_config_t enet_config = {
+        .phyAddress = EXAMPLE_PHY_ADDRESS,
+        .clockName  = EXAMPLE_CLOCK_NAME,
+        .macAddress = configMAC_ADDR,
+#if defined(FSL_FEATURE_SOC_LPC_ENET_COUNT) && (FSL_FEATURE_SOC_LPC_ENET_COUNT > 0)
+        .non_dma_memory = non_dma_memory,
+#endif /* FSL_FEATURE_SOC_LPC_ENET_COUNT */
+    };
 
     time_init();
 
@@ -453,10 +466,12 @@ int main(void)
     netif_set_default(&netif);
     netif_set_up(&netif);
 
+/** DHCP setup *************************************************************************************************/
+
     dhcp_start(&netif);
 
     PRINTF("\r\n************************************************\r\n");
-    PRINTF(" DHCP example\r\n");
+    PRINTF(" DHCP Setup\r\n");
     PRINTF("************************************************\r\n");
 
     // Wait for DHCP startup
@@ -468,20 +483,13 @@ int main(void)
         sys_check_timeouts();
     }
 
+/** RTC setup ************************************************************************************************/
+
     // Start RTC before SNTP to ensure that SNTP can access RTC
     PRINTF("Attempting RTC init... ");
-
     rtc_config_t rtcConfig;
-    rtc_datetime_t date;
 
     /* Init RTC */
-    /*
-     * rtcConfig.wakeupSelect = false;
-     * rtcConfig.updateMode = false;
-     * rtcConfig.supervisorAccess = false;
-     * rtcConfig.compensationInterval = 0;
-     * rtcConfig.compensationTime = 0;
-     */
     RTC_GetDefaultConfig(&rtcConfig);
     RTC_Init(RTC, &rtcConfig);
 #if !(defined(FSL_FEATURE_RTC_HAS_NO_CR_OSCE) && FSL_FEATURE_RTC_HAS_NO_CR_OSCE)
@@ -489,14 +497,6 @@ int main(void)
     /* Select RTC clock source */
     RTC_SetClockSource(RTC);
 #endif /* FSL_FEATURE_RTC_HAS_NO_CR_OSCE */
-
-    /* Set a start date time and start RTC */
-    date.year   = 2020U;
-    date.month  = 0U;
-    date.day    = 0U;
-    date.hour   = 0U;
-    date.minute = 0U;
-    date.second = 0U;
 
     /* RTC time counter has to be stopped before setting the date & time in the TSR register */
     RTC_StopTimer(RTC);
@@ -508,14 +508,11 @@ int main(void)
 #endif /* RTC_SECONDS_IRQS */
 
     RTC_EnableInterrupts(RTC, kRTC_SecondsInterruptEnable);
-
-    /* Start the RTC time counter */
-    //RTC_StartTimer(RTC);
-
     PRINTF("DONE\r\n");
 
-    PRINTF("Attempting SNTP init... ");
+/** SNTP setup ***********************************************************************************************/
 
+    PRINTF("Attempting SNTP init... ");
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
 //  #if LWIP_DHCP
 //    sntp_servermode_dhcp(1); /* get SNTP server via DHCP */
@@ -535,13 +532,14 @@ int main(void)
     sntp_setserver(1, &ntp_google_ipaddr);
 
     sntp_init();
-
     PRINTF("DONE\r\n");
 
     PRINTF("Waiting for display to finish refreshing... ");
 	einkWaitUntilIdle();
 	einkSetRefreshMode(FAST_REFRESH);
 	PRINTF("DONE\r\n");
+
+/** Main loop ************************************************************************************************/
 
     while (1)
     {
@@ -555,20 +553,10 @@ int main(void)
         print_dhcp_state(&netif);
 
         if (g_SecsFlag) {
+
         	g_SecsFlag = false;
         	updateTime();
-
-            rtc_datetime_t date;
-
-            RTC_GetDatetime(RTC, &date);
-            PRINTF("Current datetime: %04d-%02d-%02d %02d:%02d:%02d\r\n", date.year, date.month, date.day, date.hour,
-                   date.minute, date.second);
         }
-
-        //PRINTF("sec: %d; usec: %d", sec, usec);
-
-        //PRINTF("%02d:%02d\r\n", timeinfo->tm_hour, timeinfo->tm_min);
-
     }
 }
 #endif
