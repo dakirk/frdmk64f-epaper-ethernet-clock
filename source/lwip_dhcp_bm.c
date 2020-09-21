@@ -34,6 +34,7 @@
 #include "fsl_debug_console.h"
 #include "fsl_dspi.h"
 #include "fsl_gpio.h"
+#include "fsl_rtc.h"
 
 #include "pin_mux.h"
 #include "clock_config.h"
@@ -89,6 +90,47 @@ unsigned char colorBuffer[5808];
 /*******************************************************************************
  * Code
  ******************************************************************************/
+
+/*!
+ * @brief Override the RTC IRQ handler.
+ */
+void RTC_IRQHandler(void)
+{
+    if (RTC_GetStatusFlags(RTC) & kRTC_AlarmFlag)
+    {
+        //g_AlarmPending = 1U;
+
+        /* Clear alarm flag */
+        RTC_ClearStatusFlags(RTC, kRTC_AlarmInterruptEnable);
+    }
+    /* Add for ARM errata 838869, affects Cortex-M4, Cortex-M4F Store immediate overlapping
+    exception return operation might vector to incorrect interrupt */
+    __DSB();
+}
+
+/*!
+ * @brief Override the RTC Second IRQ handler.
+ */
+void RTC_Seconds_IRQHandler(void)
+{
+    g_SecsFlag = true;
+    /* Add for ARM errata 838869, affects Cortex-M4, Cortex-M4F Store immediate overlapping
+    exception return operation might vector to incorrect interrupt */
+    __DSB();
+}
+
+/*!
+ * @brief Interrupt service for SysTick timer.
+ */
+void SysTick_Handler(void)
+{
+    time_isr();
+
+    if (eink_systickCounter != 0U)
+    {
+        eink_systickCounter--;
+    }
+}
 
 /*!
  * @brief Function to convert international (24-hour time) to American-style 12-hour time
@@ -218,7 +260,12 @@ struct tm* getLocalizedTime(time_t utc, int timezone) {
 
 void updateTime() {
 
-	struct tm* timeinfo = getLocalizedTime(global_time, EST);
+    rtc_datetime_t date;
+    RTC_GetDatetime(RTC, &date);
+
+	uint32_t timestamp = (time_t)RTC_ConvertDatetimeToSeconds(&date);
+
+	struct tm* timeinfo = getLocalizedTime(timestamp, EST);
 
 	// if it's a new minute, refresh the screen
 	if (timeinfo->tm_sec == 0)
@@ -232,16 +279,14 @@ void updateTime() {
 			einkSetRefreshMode(FULL_REFRESH);
 			einkClearFrame();
 			einkDisplayFrameFromSRAMBlocking();
-			global_time += 15; // full refresh takes a while, so we compensate
 			einkSetRefreshMode(FAST_REFRESH);
 		}
-		// clear screen every 30 minutes
-		else if (timeinfo->tm_min % 30 == 0) {
+		// clear screen every hour
+		else if (timeinfo->tm_min % 60 == 0) {
 			einkClearFrame();
 			einkDisplayFrameFromSRAMBlocking();
 			einkDisplayFrameFromSRAMBlocking();
 			einkDisplayFrameFromSRAMBlocking();
-			global_time += 10; // repeated fast refreshing takes a while, so we compensate
 		}
 
 		char timeBuf[6];
@@ -280,35 +325,6 @@ void updateTime() {
 
     PRINTF("Daylight savings: %d\r\n", timeinfo->tm_isdst);
 	PRINTF("%02d:%02d:%02d\r\n", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
-	global_time++;
-}
-
-/*!
- * @brief Interrupt service for SysTick timer.
- */
-void SysTick_Handler(void)
-{
-    time_isr();
-
-    //delay stuff
-    if (eink_systickCounter != 0U)
-    {
-        eink_systickCounter--;
-    }
-
-    //time stuff
-
-    // make sure system time has been initialized
-    if (global_time != 0) {
-
-    	// if a second has passed
-    	if (g_systickCounter > 0 && g_systickCounter % 1000 == 0) {
-
-    		g_SecsFlag = true;
-		}
-
-    	g_systickCounter++;
-    }
 }
 
 /*!
@@ -424,7 +440,6 @@ int main(void)
 
     einkClearFrame();
 	einkDisplayFrameFromSRAMNonBlocking();
-	einkSetRefreshMode(FAST_REFRESH);
 
     time_init();
 
@@ -453,7 +468,53 @@ int main(void)
         sys_check_timeouts();
     }
 
-    PRINTF("Attempting SNTP init\r\n");
+    // Start RTC before SNTP to ensure that SNTP can access RTC
+    PRINTF("Attempting RTC init... ");
+
+    rtc_config_t rtcConfig;
+    rtc_datetime_t date;
+
+    /* Init RTC */
+    /*
+     * rtcConfig.wakeupSelect = false;
+     * rtcConfig.updateMode = false;
+     * rtcConfig.supervisorAccess = false;
+     * rtcConfig.compensationInterval = 0;
+     * rtcConfig.compensationTime = 0;
+     */
+    RTC_GetDefaultConfig(&rtcConfig);
+    RTC_Init(RTC, &rtcConfig);
+#if !(defined(FSL_FEATURE_RTC_HAS_NO_CR_OSCE) && FSL_FEATURE_RTC_HAS_NO_CR_OSCE)
+
+    /* Select RTC clock source */
+    RTC_SetClockSource(RTC);
+#endif /* FSL_FEATURE_RTC_HAS_NO_CR_OSCE */
+
+    /* Set a start date time and start RTC */
+    date.year   = 2020U;
+    date.month  = 0U;
+    date.day    = 0U;
+    date.hour   = 0U;
+    date.minute = 0U;
+    date.second = 0U;
+
+    /* RTC time counter has to be stopped before setting the date & time in the TSR register */
+    RTC_StopTimer(RTC);
+
+    /* Enable at the NVIC */
+    EnableIRQ(RTC_IRQn);
+#ifdef RTC_SECONDS_IRQS
+    EnableIRQ(RTC_Seconds_IRQn);
+#endif /* RTC_SECONDS_IRQS */
+
+    RTC_EnableInterrupts(RTC, kRTC_SecondsInterruptEnable);
+
+    /* Start the RTC time counter */
+    //RTC_StartTimer(RTC);
+
+    PRINTF("DONE\r\n");
+
+    PRINTF("Attempting SNTP init... ");
 
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
 //  #if LWIP_DHCP
@@ -475,7 +536,12 @@ int main(void)
 
     sntp_init();
 
+    PRINTF("DONE\r\n");
+
+    PRINTF("Waiting for display to finish refreshing... ");
 	einkWaitUntilIdle();
+	einkSetRefreshMode(FAST_REFRESH);
+	PRINTF("DONE\r\n");
 
     while (1)
     {
@@ -491,6 +557,12 @@ int main(void)
         if (g_SecsFlag) {
         	g_SecsFlag = false;
         	updateTime();
+
+            rtc_datetime_t date;
+
+            RTC_GetDatetime(RTC, &date);
+            PRINTF("Current datetime: %04d-%02d-%02d %02d:%02d:%02d\r\n", date.year, date.month, date.day, date.hour,
+                   date.minute, date.second);
         }
 
         //PRINTF("sec: %d; usec: %d", sec, usec);

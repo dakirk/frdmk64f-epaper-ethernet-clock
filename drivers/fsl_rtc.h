@@ -208,6 +208,23 @@ void RTC_GetDefaultConfig(rtc_config_t *config);
  */
 
 /*!
+ * @brief Converts time data from datetime to seconds
+ *
+ * @param datetime Pointer to datetime structure where the date and time details are stored
+ *
+ * @return The result of the conversion in seconds
+ */
+uint32_t RTC_ConvertDatetimeToSeconds(const rtc_datetime_t *datetime);
+
+/*!
+ * @brief Converts time data from seconds to a datetime structure
+ *
+ * @param seconds  Seconds value that needs to be converted to datetime format
+ * @param datetime Pointer to the datetime structure where the result of the conversion is stored
+ */
+void RTC_ConvertSecondsToDatetime(uint32_t seconds, rtc_datetime_t *datetime);
+
+/*!
  * @brief Sets the RTC date and time according to the given time structure.
  *
  * The RTC counter must be stopped prior to calling this function because writes to the RTC

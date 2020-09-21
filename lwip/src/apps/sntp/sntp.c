@@ -59,6 +59,8 @@
 #include "lwip/pbuf.h"
 #include "lwip/dhcp.h"
 
+#include "fsl_rtc.h"
+
 #include <string.h>
 #include <time.h>
 
@@ -113,8 +115,6 @@
 
 /* Number of seconds between 1970 and Feb 7, 2036 06:28:16 UTC (epoch 1) */
 #define DIFF_SEC_1970_2036          ((u32_t)2085978496L)
-
-time_t global_time = 0;
 
 /** Convert NTP timestamp fraction to microseconds.
  */
@@ -330,7 +330,21 @@ sntp_process(const struct sntp_timestamps *timestamps)
   LWIP_DEBUGF(SNTP_DEBUG_TRACE, ("sntp_process: %s, %" U32_F " us\n",
                                  sntp_format_time(sec), SNTP_FRAC_TO_US(frac)));
 
-  global_time = (u32_t)((u32_t)sec + DIFF_SEC_1970_2036);
+  uint32_t internet_time = (u32_t)((u32_t)sec + DIFF_SEC_1970_2036);
+
+  RTC_StopTimer(RTC);
+
+  rtc_datetime_t date;
+  RTC_ConvertSecondsToDatetime(internet_time, &date);
+
+
+
+  if (kStatus_Success != RTC_SetDatetime(RTC, &date))
+  {
+      PRINTF("Invalid input string\r\n");
+  }
+
+  RTC_StartTimer(RTC);
 }
 
 /**

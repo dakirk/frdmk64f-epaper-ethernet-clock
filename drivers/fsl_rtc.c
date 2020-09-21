@@ -36,22 +36,22 @@
  */
 static bool RTC_CheckDatetimeFormat(const rtc_datetime_t *datetime);
 
-/*!
- * @brief Converts time data from datetime to seconds
- *
- * @param datetime Pointer to datetime structure where the date and time details are stored
- *
- * @return The result of the conversion in seconds
- */
-static uint32_t RTC_ConvertDatetimeToSeconds(const rtc_datetime_t *datetime);
-
-/*!
- * @brief Converts time data from seconds to a datetime structure
- *
- * @param seconds  Seconds value that needs to be converted to datetime format
- * @param datetime Pointer to the datetime structure where the result of the conversion is stored
- */
-static void RTC_ConvertSecondsToDatetime(uint32_t seconds, rtc_datetime_t *datetime);
+///*!
+// * @brief Converts time data from datetime to seconds
+// *
+// * @param datetime Pointer to datetime structure where the date and time details are stored
+// *
+// * @return The result of the conversion in seconds
+// */
+//static uint32_t RTC_ConvertDatetimeToSeconds(const rtc_datetime_t *datetime);
+//
+///*!
+// * @brief Converts time data from seconds to a datetime structure
+// *
+// * @param seconds  Seconds value that needs to be converted to datetime format
+// * @param datetime Pointer to the datetime structure where the result of the conversion is stored
+// */
+//static void RTC_ConvertSecondsToDatetime(uint32_t seconds, rtc_datetime_t *datetime);
 
 /*******************************************************************************
  * Code
@@ -88,7 +88,7 @@ static bool RTC_CheckDatetimeFormat(const rtc_datetime_t *datetime)
     return true;
 }
 
-static uint32_t RTC_ConvertDatetimeToSeconds(const rtc_datetime_t *datetime)
+uint32_t RTC_ConvertDatetimeToSeconds(const rtc_datetime_t *datetime)
 {
     assert(NULL != datetime);
 
@@ -118,7 +118,7 @@ static uint32_t RTC_ConvertDatetimeToSeconds(const rtc_datetime_t *datetime)
     return seconds;
 }
 
-static void RTC_ConvertSecondsToDatetime(uint32_t seconds, rtc_datetime_t *datetime)
+void RTC_ConvertSecondsToDatetime(uint32_t seconds, rtc_datetime_t *datetime)
 {
     assert(NULL != datetime);
 
