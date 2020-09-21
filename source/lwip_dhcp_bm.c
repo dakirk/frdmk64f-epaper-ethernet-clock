@@ -34,6 +34,7 @@
 #include "fsl_debug_console.h"
 #include "fsl_dspi.h"
 #include "fsl_gpio.h"
+#include "fsl_rtc.h"
 
 #include "pin_mux.h"
 #include "clock_config.h"
@@ -82,12 +83,54 @@
  ******************************************************************************/
 
 volatile uint32_t g_systickCounter;
+volatile bool g_SecsFlag        = false;
 unsigned char imgBuffer[5808];
 unsigned char colorBuffer[5808];
 
 /*******************************************************************************
  * Code
  ******************************************************************************/
+
+/*!
+ * @brief Override the RTC IRQ handler.
+ */
+void RTC_IRQHandler(void)
+{
+    if (RTC_GetStatusFlags(RTC) & kRTC_AlarmFlag)
+    {
+        //g_AlarmPending = 1U;
+
+        /* Clear alarm flag */
+        RTC_ClearStatusFlags(RTC, kRTC_AlarmInterruptEnable);
+    }
+    /* Add for ARM errata 838869, affects Cortex-M4, Cortex-M4F Store immediate overlapping
+    exception return operation might vector to incorrect interrupt */
+    __DSB();
+}
+
+/*!
+ * @brief Override the RTC Second IRQ handler.
+ */
+void RTC_Seconds_IRQHandler(void)
+{
+    g_SecsFlag = true;
+    /* Add for ARM errata 838869, affects Cortex-M4, Cortex-M4F Store immediate overlapping
+    exception return operation might vector to incorrect interrupt */
+    __DSB();
+}
+
+/*!
+ * @brief Interrupt service for SysTick timer.
+ */
+void SysTick_Handler(void)
+{
+    time_isr();
+
+    if (eink_systickCounter != 0U)
+    {
+        eink_systickCounter--;
+    }
+}
 
 /*!
  * @brief Function to convert international (24-hour time) to American-style 12-hour time
@@ -216,94 +259,75 @@ struct tm* getLocalizedTime(time_t utc, int timezone) {
 }
 
 /*!
- * @brief Interrupt service for SysTick timer.
+ * @brief Callback method to get time from the RTC and draw the display with time and date
  */
-void SysTick_Handler(void)
-{
-    time_isr();
+void updateTime() {
 
-    //delay stuff
-    if (eink_systickCounter != 0U)
-    {
-        eink_systickCounter--;
-    }
+    rtc_datetime_t date;
+    RTC_GetDatetime(RTC, &date);
 
-    //time stuff
+	uint32_t timestamp = (time_t)RTC_ConvertDatetimeToSeconds(&date);
 
-    // make sure system time has been initialized
-    if (global_time != 0) {
+	struct tm* timeinfo = getLocalizedTime(timestamp, EST);
 
-        struct tm* timeinfo = getLocalizedTime(global_time, EST);
+	// if it's a new minute, refresh the screen
+	if (timeinfo->tm_sec == 0)
+	{
+		PRINTF("Updating screen\r\n");
 
-    	// if a second has passed
-    	if (g_systickCounter > 0 && g_systickCounter % 1000 == 0) {
+		int digitScale = 7;
 
-    		// if it's a new minute, refresh the screen
-    		if (timeinfo->tm_sec == 0)
-    		{
-        		PRINTF("Updating screen\r\n");
-
-        		int digitScale = 7;
-
-        		// at midnight, do a full refresh
-        		if (timeinfo->tm_hour == 0 && timeinfo->tm_min == 0) {
-        			einkSetRefreshMode(FULL_REFRESH);
-        			einkClearFrame();
-        			einkDisplayFrameFromSRAM();
-        			global_time += 15; // full refresh takes a while, so we compensate
-        			einkSetRefreshMode(FAST_REFRESH);
-        		}
-        		// clear screen every 30 minutes
-        		else if (timeinfo->tm_min % 30 == 0) {
-        			einkClearFrame();
-        			einkDisplayFrameFromSRAM();
-        			einkDisplayFrameFromSRAM();
-        			einkDisplayFrameFromSRAM();
-        			global_time += 10; // repeated fast refreshing takes a while, so we compensate
-        		}
-
-        		char timeBuf[6];
-        		char dateBuf[20];
-
-        		int twelveHourTime = getTwelveHourTime(timeinfo->tm_hour);
-
-        		sprintf(timeBuf, "%d:%02d", twelveHourTime, timeinfo->tm_min);
-        		sprintf(dateBuf, "%s, %s %02d", getDayOfWeek(timeinfo->tm_wday), getMonth(timeinfo->tm_mon), timeinfo->tm_mday);
-
-        		paintDrawString(imgBuffer,
-        						strlen(timeBuf) * 7 * digitScale - 9,
-								25, (timeinfo->tm_hour > 11 ? "PM" : "AM"),
-								&Font12,
-								COLORED,
-								2
-				);
-
-        		//draw date info
-        		paintDrawString(imgBuffer, 4, 0, dateBuf, &Font12, COLORED, 2);
-
-        		//draw time
-        		paintDrawString(imgBuffer, -3, 20, timeBuf, &Font12, COLORED, digitScale);
-
-        		//draw time drop shadow
-        		paintDrawString(colorBuffer, -1, 22, timeBuf, &Font12, COLORED, digitScale);
-        		paintDrawString(colorBuffer, -3, 20, timeBuf, &Font12, UNCOLORED, digitScale);
-
-        		//push to display
-        		einkDisplayFrameFromBufferNonBlocking(imgBuffer, NULL);
-        		paintClear(imgBuffer, UNCOLORED);
-        		paintClear(colorBuffer, UNCOLORED);
-
-        		g_systickCounter = 0;
-        	}
-
-    	    PRINTF("Daylight savings: %d\r\n", timeinfo->tm_isdst);
-			PRINTF("%02d:%02d:%02d\r\n", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
-			global_time++;
+		// at midnight, do a full refresh
+		if (timeinfo->tm_hour == 0 && timeinfo->tm_min == 0) {
+			einkSetRefreshMode(FULL_REFRESH);
+			einkClearFrame();
+			einkDisplayFrameFromSRAMBlocking();
+			einkSetRefreshMode(FAST_REFRESH);
+		}
+		// clear screen every hour
+		else if (timeinfo->tm_min % 60 == 0) {
+			einkClearFrame();
+			einkDisplayFrameFromSRAMBlocking();
+			einkDisplayFrameFromSRAMBlocking();
+			einkDisplayFrameFromSRAMBlocking();
 		}
 
-    	g_systickCounter++;
-    }
+		char timeBuf[6];
+		char dateBuf[20];
 
+		int twelveHourTime = getTwelveHourTime(timeinfo->tm_hour);
+
+		sprintf(timeBuf, "%d:%02d", twelveHourTime, timeinfo->tm_min);
+		sprintf(dateBuf, "%s, %s %02d", getDayOfWeek(timeinfo->tm_wday), getMonth(timeinfo->tm_mon), timeinfo->tm_mday);
+
+		paintDrawString(imgBuffer,
+						strlen(timeBuf) * 7 * digitScale - 9,
+						25, (timeinfo->tm_hour > 11 ? "PM" : "AM"),
+						&Font12,
+						COLORED,
+						2
+		);
+
+		//draw date info
+		paintDrawString(imgBuffer, 4, 0, dateBuf, &Font12, COLORED, 2);
+
+		//draw time
+		paintDrawString(imgBuffer, -3, 20, timeBuf, &Font12, COLORED, digitScale);
+
+		//draw time drop shadow
+		paintDrawString(colorBuffer, -1, 22, timeBuf, &Font12, COLORED, digitScale);
+		paintDrawString(colorBuffer, -3, 20, timeBuf, &Font12, UNCOLORED, digitScale);
+
+		//push to display
+		einkDisplayFrameFromBufferNonBlocking(imgBuffer, NULL);
+		paintClear(imgBuffer, UNCOLORED);
+		paintClear(colorBuffer, UNCOLORED);
+
+		g_systickCounter = 0;
+	}
+
+    PRINTF("Daylight savings: %d\r\n", timeinfo->tm_isdst);
+	PRINTF("%02d:%02d:%02d\r\n", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 }
 
 /*!
@@ -384,19 +408,12 @@ static int print_dhcp_state(struct netif *netif)
  */
 int main(void)
 {
-    struct netif netif;
+
+/** Board setup ************************************************************************************************/
+
 #if defined(FSL_FEATURE_SOC_LPC_ENET_COUNT) && (FSL_FEATURE_SOC_LPC_ENET_COUNT > 0)
     mem_range_t non_dma_memory[] = NON_DMA_MEMORY_ARRAY;
 #endif /* FSL_FEATURE_SOC_LPC_ENET_COUNT */
-    ip4_addr_t netif_ipaddr, netif_netmask, netif_gw;
-    ethernetif_config_t enet_config = {
-        .phyAddress = EXAMPLE_PHY_ADDRESS,
-        .clockName  = EXAMPLE_CLOCK_NAME,
-        .macAddress = configMAC_ADDR,
-#if defined(FSL_FEATURE_SOC_LPC_ENET_COUNT) && (FSL_FEATURE_SOC_LPC_ENET_COUNT > 0)
-        .non_dma_memory = non_dma_memory,
-#endif /* FSL_FEATURE_SOC_LPC_ENET_COUNT */
-    };
 
     SYSMPU_Type *base = SYSMPU;
     BOARD_InitPins();
@@ -404,6 +421,8 @@ int main(void)
     BOARD_InitDebugConsole();
     /* Disable SYSMPU. */
     base->CESR &= ~SYSMPU_CESR_VLD_MASK;
+
+/** Timer setup ************************************************************************************************/
 
     /* Set systick reload value to generate 1ms interrupt */
     if (SysTick_Config(SystemCoreClock / 1000U))
@@ -413,13 +432,27 @@ int main(void)
         }
     }
 
-    // eink setup
+/** E-ink setup ************************************************************************************************/
+
     spiInit();
     einkInit();
 
     einkClearFrame();
-	einkDisplayFrameFromSRAM();
-	einkSetRefreshMode(FAST_REFRESH);
+	einkDisplayFrameFromSRAMNonBlocking();
+
+/** Ethernet setup *********************************************************************************************/
+
+	struct netif netif;
+
+    ip4_addr_t netif_ipaddr, netif_netmask, netif_gw;
+    ethernetif_config_t enet_config = {
+        .phyAddress = EXAMPLE_PHY_ADDRESS,
+        .clockName  = EXAMPLE_CLOCK_NAME,
+        .macAddress = configMAC_ADDR,
+#if defined(FSL_FEATURE_SOC_LPC_ENET_COUNT) && (FSL_FEATURE_SOC_LPC_ENET_COUNT > 0)
+        .non_dma_memory = non_dma_memory,
+#endif /* FSL_FEATURE_SOC_LPC_ENET_COUNT */
+    };
 
     time_init();
 
@@ -433,12 +466,15 @@ int main(void)
     netif_set_default(&netif);
     netif_set_up(&netif);
 
+/** DHCP setup *************************************************************************************************/
+
     dhcp_start(&netif);
 
     PRINTF("\r\n************************************************\r\n");
-    PRINTF(" DHCP example\r\n");
+    PRINTF(" DHCP Setup\r\n");
     PRINTF("************************************************\r\n");
 
+    // Wait for DHCP startup
     while (print_dhcp_state(&netif)) {
         /* Poll the driver, get any outstanding frames */
         ethernetif_input(&netif);
@@ -447,8 +483,36 @@ int main(void)
         sys_check_timeouts();
     }
 
-    PRINTF("Attempting SNTP init\r\n");
+/** RTC setup ************************************************************************************************/
 
+    // Start RTC before SNTP to ensure that SNTP can access RTC
+    PRINTF("Attempting RTC init... ");
+    rtc_config_t rtcConfig;
+
+    /* Init RTC */
+    RTC_GetDefaultConfig(&rtcConfig);
+    RTC_Init(RTC, &rtcConfig);
+#if !(defined(FSL_FEATURE_RTC_HAS_NO_CR_OSCE) && FSL_FEATURE_RTC_HAS_NO_CR_OSCE)
+
+    /* Select RTC clock source */
+    RTC_SetClockSource(RTC);
+#endif /* FSL_FEATURE_RTC_HAS_NO_CR_OSCE */
+
+    /* RTC time counter has to be stopped before setting the date & time in the TSR register */
+    RTC_StopTimer(RTC);
+
+    /* Enable at the NVIC */
+    EnableIRQ(RTC_IRQn);
+#ifdef RTC_SECONDS_IRQS
+    EnableIRQ(RTC_Seconds_IRQn);
+#endif /* RTC_SECONDS_IRQS */
+
+    RTC_EnableInterrupts(RTC, kRTC_SecondsInterruptEnable);
+    PRINTF("DONE\r\n");
+
+/** SNTP setup ***********************************************************************************************/
+
+    PRINTF("Attempting SNTP init... ");
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
 //  #if LWIP_DHCP
 //    sntp_servermode_dhcp(1); /* get SNTP server via DHCP */
@@ -468,6 +532,14 @@ int main(void)
     sntp_setserver(1, &ntp_google_ipaddr);
 
     sntp_init();
+    PRINTF("DONE\r\n");
+
+    PRINTF("Waiting for display to finish refreshing... ");
+	einkWaitUntilIdle();
+	einkSetRefreshMode(FAST_REFRESH);
+	PRINTF("DONE\r\n");
+
+/** Main loop ************************************************************************************************/
 
     while (1)
     {
@@ -480,10 +552,11 @@ int main(void)
         /* Print DHCP progress */
         print_dhcp_state(&netif);
 
-        //PRINTF("sec: %d; usec: %d", sec, usec);
+        if (g_SecsFlag) {
 
-        //PRINTF("%02d:%02d\r\n", timeinfo->tm_hour, timeinfo->tm_min);
-
+        	g_SecsFlag = false;
+        	updateTime();
+        }
     }
 }
 #endif

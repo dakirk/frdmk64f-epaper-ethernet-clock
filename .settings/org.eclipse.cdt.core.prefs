@@ -1,0 +1,11 @@
+eclipse.preferences.version=1
+environment/project/com.crt.advproject.config.exe.debug.1435374920/TZ/delimiter=\:
+environment/project/com.crt.advproject.config.exe.debug.1435374920/TZ/operation=append
+environment/project/com.crt.advproject.config.exe.debug.1435374920/TZ/value=EST+5EDT,M3.2.0/2,M11.1.0/2
+environment/project/com.crt.advproject.config.exe.debug.1435374920/append=true
+environment/project/com.crt.advproject.config.exe.debug.1435374920/appendContributed=true
+environment/project/com.crt.advproject.config.exe.release.2097082186/TZ/delimiter=\:
+environment/project/com.crt.advproject.config.exe.release.2097082186/TZ/operation=append
+environment/project/com.crt.advproject.config.exe.release.2097082186/TZ/value=EST+5EDT,M3.2.0/2,M11.1.0/2
+environment/project/com.crt.advproject.config.exe.release.2097082186/append=true
+environment/project/com.crt.advproject.config.exe.release.2097082186/appendContributed=true

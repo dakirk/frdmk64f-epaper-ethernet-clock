@@ -188,7 +188,7 @@ void einkWaitUntilIdle() {
 	while(isBusy) {
 
 		isBusy = !GPIO_PinRead(BOARD_INITPINS_BUSY_GPIO, BOARD_INITPINS_BUSY_PIN);
-		//SysTick_DelayTicks(100U);
+		SysTick_DelayTicks(100U);
 
 	}
 }
@@ -238,17 +238,17 @@ void einkClearFrame() {
 	einkSendData(EPD_HEIGHT & 0xff);         //264
 
 	einkSendCommand(DATA_START_TRANSMISSION_1);
-	//SysTick_DelayTicks(2U);
+	SysTick_DelayTicks(2U);
 	for(i = 0; i < EPD_WIDTH * EPD_HEIGHT / 8; i++) {
 		einkSendData(0x00);
 	}
-	//SysTick_DelayTicks(2);
+	SysTick_DelayTicks(2);
 	einkSendCommand(DATA_START_TRANSMISSION_2);
-	//SysTick_DelayTicks(2);
+	SysTick_DelayTicks(2);
 	for(i = 0; i < EPD_WIDTH * EPD_HEIGHT / 8; i++) {
 		einkSendData(0x00);
 	}
-	//SysTick_DelayTicks(2);
+	SysTick_DelayTicks(2);
 }
 
 /**
@@ -273,20 +273,20 @@ int einkDisplayFrameFromBufferNonBlocking(const unsigned char* frame_buffer_blac
 
     if (frame_buffer_black != NULL) {
         einkSendCommand(DATA_START_TRANSMISSION_1);
-        //SysTick_DelayTicks(2U);
+        SysTick_DelayTicks(2U);
         for(i = 0; i < EPD_WIDTH * EPD_HEIGHT / 8; i++) {
             einkSendData(pgm_read_byte(&frame_buffer_black[i]));
             //PRINTF("%x ", pgm_read_byte(&frame_buffer_black[i]));
         }
-        //SysTick_DelayTicks(2U);
+        SysTick_DelayTicks(2U);
     }
     if (frame_buffer_red != NULL) {
         einkSendCommand(DATA_START_TRANSMISSION_2);
-        //SysTick_DelayTicks(2U);
+        SysTick_DelayTicks(2U);
         for(i = 0; i < EPD_WIDTH * EPD_HEIGHT / 8; i++) {
             einkSendData(pgm_read_byte(&frame_buffer_red[i]));
         }
-        //SysTick_DelayTicks(2U);
+        SysTick_DelayTicks(2U);
     }
     einkSendCommand(DISPLAY_REFRESH);
 
@@ -334,10 +334,16 @@ void einkDisplayFrameFromBufferBlocking(const unsigned char* frame_buffer_black,
 /**
  * @brief: This displays the frame data from SRAM
  */
-void einkDisplayFrameFromSRAM() {
+void einkDisplayFrameFromSRAMBlocking() {
 
 	einkSendCommand(DISPLAY_REFRESH);
 	einkWaitUntilIdle();
+
+}
+
+void einkDisplayFrameFromSRAMNonBlocking() {
+
+	einkSendCommand(DISPLAY_REFRESH);
 
 }
 
