@@ -514,22 +514,9 @@ int main(void)
 
     PRINTF("Attempting SNTP init... ");
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
-//  #if LWIP_DHCP
-//    sntp_servermode_dhcp(1); /* get SNTP server via DHCP */
-//  #else /* LWIP_DHCP */
-//  #if LWIP_IPV4
-//    sntp_setserver(0, netif_ip_gw4(netif_default));
-//  #endif /* LWIP_IPV4 */
-//  #endif /* LWIP_DHCP */
 
-    ip4_addr_t ntp_pool_ipaddr;
-    ip4_addr_t ntp_google_ipaddr;
-
-    IP4_ADDR(&ntp_pool_ipaddr, 66U, 96U, 98U, 9U);
-    IP4_ADDR(&ntp_google_ipaddr, 216U, 239U, 35U, 4U);
-
-    sntp_setserver(0, &ntp_pool_ipaddr);
-    sntp_setserver(1, &ntp_google_ipaddr);
+    sntp_setservername(0, "pool.ntp.org");
+    sntp_setservername(1, "time.google.com");
 
     sntp_init();
     PRINTF("DONE\r\n");

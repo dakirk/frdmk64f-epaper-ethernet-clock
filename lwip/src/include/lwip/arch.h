@@ -68,9 +68,9 @@
 #endif
 
 /** Define random number generator function of your system */
-#ifdef __DOXYGEN__
+//#ifdef __DOXYGEN__
 #define LWIP_RAND() ((u32_t)rand())
-#endif
+//#endif
 
 /** Platform specific diagnostic output.\n
  * Note the default implementation pulls in printf, which may
