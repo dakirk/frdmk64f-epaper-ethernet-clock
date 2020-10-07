@@ -92,8 +92,8 @@ unsigned char imgBuffer[5808];
 unsigned char colorBuffer[5808];
 
 struct tcp_pcb * weather_pcb;
-char weather_description[30];
-int temperature;
+char* weather_description = NULL;
+char* temperature = NULL;
 /*******************************************************************************
  * Code
  ******************************************************************************/
@@ -303,7 +303,33 @@ err_t tcpRecvCallback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
         return ERR_OK;
     } else {
         PRINTF("Number of pbufs %d\r\n", pbuf_clen(p));
-        PRINTF("Contents of pbuf %s\r\n", (char *)p->payload);
+        //PRINTF("Contents of pbuf %s\r\n", (char *)p->payload);
+
+        char* weather_description_base = (char*)p->payload;
+
+        //The following blocks of code must NOT be re-arranged, because strtok will shorten the string as it works
+
+        char* temperature_base = (char*)p->payload;
+
+        // get temperature (F)
+        temperature = strstr(temperature_base, "\"temp\":");
+        if (temperature != NULL) {
+            temperature += sizeof(char) * strlen("\"temp\":");
+
+            strtok(temperature,",");
+            if (temperature != NULL)
+            	PRINTF("%s\r\n", temperature);
+        }
+
+        weather_description = strstr(weather_description_base, "\"main\":\"");
+
+        // get weather description (make this into a function)
+        if (weather_description != NULL) {
+            weather_description += sizeof(char) * strlen("\"main\":\"");
+            strtok(weather_description,"\"");
+            if (weather_description != NULL)
+              PRINTF("%s\r\n", weather_description);
+        }
     }
 
     pbuf_free(p);
@@ -380,6 +406,7 @@ void updateData() {
 
 		char timeBuf[6];
 		char dateBuf[20];
+		char temperatureBuf[10];
 
 		int twelveHourTime = getTwelveHourTime(timeinfo->tm_hour);
 
@@ -399,6 +426,18 @@ void updateData() {
 
 		//draw time
 		paintDrawString(imgBuffer, -3, 20, timeBuf, &Font12, COLORED, digitScale);
+
+		//TODO: Something's wrong here. The PRINTF calls in the tcp callback show the expected values for "main" and "temp", but for some reason here it frequently picks up parts of some Sonos packet instead, injected into the middle of the JSON I'm trying to read
+
+		//draw weather description
+		//sprintf(temperatureBuf, "%sF", temperature);
+		PRINTF("%s\r\n", temperature);
+		paintDrawString(imgBuffer, -2, 90, temperature, &Font12, COLORED, 5);
+
+		//draw weather description
+		PRINTF("%s\r\n", weather_description);
+		paintDrawString(imgBuffer, 4, 140, weather_description, &Font12, COLORED, 3);
+
 
 		//draw time drop shadow
 		paintDrawString(colorBuffer, -1, 22, timeBuf, &Font12, COLORED, digitScale);

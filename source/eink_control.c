@@ -551,6 +551,9 @@ void paintDrawString(unsigned char* image, int x, int y, const char* text, sFONT
     unsigned int counter = 0;
     int refcolumn = x;
 
+    // Ensure that no null pointer is parsed
+    if (text == NULL) return;
+
     /* Send the string character by character on EPD */
     while (*p_text != '\0') {
         /* Display one character on EPD */
