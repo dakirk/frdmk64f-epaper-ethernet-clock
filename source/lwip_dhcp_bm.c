@@ -23,6 +23,8 @@
 #include "lwip/ip_addr.h"
 #include "lwip/init.h"
 #include "lwip/dhcp.h"
+#include "lwip/dns.h"
+#include "lwip/tcp.h"
 #include "lwip/apps/sntp.h"
 #include "lwip/prot/dhcp.h"
 #include "netif/ethernet.h"
@@ -41,6 +43,7 @@
 
 #include "eink_control.h"
 #include "font12.cpp"
+#include "api_key.h"
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
@@ -84,9 +87,13 @@
 
 volatile uint32_t g_systickCounter;
 volatile bool g_SecsFlag        = false;
+
 unsigned char imgBuffer[5808];
 unsigned char colorBuffer[5808];
 
+struct tcp_pcb * weather_pcb;
+char weather_description[30];
+int temperature;
 /*******************************************************************************
  * Code
  ******************************************************************************/
@@ -258,10 +265,89 @@ struct tm* getLocalizedTime(time_t utc, int timezone) {
 	return gmtime(&local_time);
 }
 
+err_t tcp_send_packet(void)
+{
+    char api_string_buf[200];
+
+    sprintf(api_string_buf, "GET /data/2.5/weather?q=Boston&units=imperial&appid=%s HTTP/1.0\r\nHost: openweathermap.org\r\n\r\n ", weather_key);
+    uint32_t len = strlen(api_string_buf);
+
+    /* push to buffer */
+    err_t error = tcp_write(weather_pcb, api_string_buf, len, TCP_WRITE_FLAG_COPY);
+
+    if (error) {
+        PRINTF("ERROR: Code: %d (tcp_send_packet :: tcp_write)\r\n", error);
+        return 1;
+    }
+
+    /* now send */
+    error = tcp_output(weather_pcb);
+    if (error) {
+        PRINTF("ERROR: Code: %d (tcp_send_packet :: tcp_output)\r\n", error);
+    }
+    return error;
+}
+
+err_t tcpSendCallback(void *arg, struct tcp_pcb *tpcb, u16_t len) {
+    PRINTF("Packet sent!\r\n");
+    return 0;
+}
+
+err_t tcpRecvCallback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
+{
+    PRINTF("Data received.\r\n");
+    if (p == NULL) {
+        PRINTF("The remote host closed the connection.\r\n");
+        PRINTF("Now I'm closing the connection.\r\n");
+        tcp_close(tpcb);
+        return ERR_OK;
+    } else {
+        PRINTF("Number of pbufs %d\r\n", pbuf_clen(p));
+        PRINTF("Contents of pbuf %s\r\n", (char *)p->payload);
+    }
+
+    pbuf_free(p);
+
+    return 0;
+}
+
+void tcpErrorHandler(void *arg, err_t err) {
+	PRINTF("Error???\r\n");
+}
+
+/* connection established callback, err is unused and only return 0 */
+err_t connectCallback(void *arg, struct tcp_pcb *tpcb, err_t err)
+{
+    PRINTF("Connection Established.\r\n");
+    //PRINTF("Now sending a packet\r\n");
+    //tcp_send_packet();
+    return 0;
+}
+
+void tcp_setup()
+{
+    uint32_t data = 0xdeadbeef;
+
+    /* create the control block */
+    weather_pcb = tcp_new();    //testpcb is a global struct tcp_pcb
+                            // as defined by lwIP
+
+    /* dummy data to pass to callbacks*/
+
+    tcp_arg(weather_pcb, &data);
+
+    /* register callbacks with the pcb */
+
+    tcp_err(weather_pcb, tcpErrorHandler);
+    tcp_recv(weather_pcb, tcpRecvCallback);
+    tcp_sent(weather_pcb, tcpSendCallback);
+
+}
+
 /*!
  * @brief Callback method to get time from the RTC and draw the display with time and date
  */
-void updateTime() {
+void updateData() {
 
     rtc_datetime_t date;
     RTC_GetDatetime(RTC, &date);
@@ -324,6 +410,21 @@ void updateTime() {
 		paintClear(colorBuffer, UNCOLORED);
 
 		g_systickCounter = 0;
+	}
+
+	// At 30 seconds, attempt to get weather data (TEMPORARY)
+	if (timeinfo->tm_sec == 30) {
+    	// calls tcp_new to create new pcb (VERY IMPORTANT)
+    	tcp_setup();
+
+        /* create an ip */
+        struct ip4_addr ip;
+        IP4_ADDR(&ip, 192,241,245,161);    //IP of example.com
+
+        /* now connect */
+        tcp_connect(weather_pcb, &ip, 80, connectCallback);
+
+    	tcp_send_packet();
 	}
 
     PRINTF("Daylight savings: %d\r\n", timeinfo->tm_isdst);
@@ -542,7 +643,7 @@ int main(void)
         if (g_SecsFlag) {
 
         	g_SecsFlag = false;
-        	updateTime();
+        	updateData();
         }
     }
 }
