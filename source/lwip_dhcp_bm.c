@@ -139,6 +139,15 @@ void SysTick_Handler(void)
     }
 }
 
+// Simple utility function to round numbers (intended for temperatures), since this implementation of math.h doesn't seem to have one
+int round(double x)
+{
+    if (x < 0.0)
+        return (int)(x - 0.5);
+    else
+        return (int)(x + 0.5);
+}
+
 /*!
  * @brief Function to convert international (24-hour time) to American-style 12-hour time
  * @param intlTime the 24-hour notation in hours
@@ -246,6 +255,8 @@ bool isDst(struct tm* time_info) {
 	// That means the previous Sunday must be before the 1st.
 	return previousSunday <= 0;
 }
+
+// TCP code adapted from here: https://stackoverflow.com/questions/26192758/how-can-i-send-a-simple-http-request-with-a-lwip-stack
 
 /*!
  * @brief Gets localized time, based on a given timezone (I'm ignoring the localtime function
@@ -374,6 +385,20 @@ void tcp_setup()
 
 }
 
+void tcp_get_weather_update() {
+	// calls tcp_new to create new pcb (VERY IMPORTANT)
+	tcp_setup();
+
+    /* create an ip */
+    struct ip4_addr ip;
+    IP4_ADDR(&ip, 192,241,245,161);    //IP of example.com
+
+    /* now connect */
+    tcp_connect(weather_pcb, &ip, 80, connectCallback);
+
+	tcp_send_packet();
+}
+
 /*!
  * @brief Callback method to get time from the RTC and draw the display with time and date
  */
@@ -431,14 +456,11 @@ void updateData() {
 		//draw time
 		paintDrawString(imgBuffer, -3, 20, timeBuf, &Font12, COLORED, digitScale);
 
-		//TODO: Replace the double with a manually rounded int. Seems that sprintf doesn't support floats and I wanted to round it to an int anyway
-
 		//draw weather description
-		//sprintf(temperatureBuf, "%sF", temperature);
 		PRINTF("%s\r\n", temperature_str);
-		double temperature_float = atof(temperature_str);
-		//PRINTF("%f\r\n", 1.1);
-		sprintf(temperatureBuf, "%s F", temperature_str);
+		int temperature_num = round(atof(temperature_str));
+		PRINTF("%d\r\n", temperature_num);
+		sprintf(temperatureBuf, "%d F", temperature_num);
 		paintDrawString(imgBuffer, -2, 90, temperatureBuf, &Font12, COLORED, 5);
 
 		//draw weather description
@@ -460,17 +482,7 @@ void updateData() {
 
 	// At 30 seconds, attempt to get weather data (TEMPORARY)
 	if (timeinfo->tm_sec == 30) {
-    	// calls tcp_new to create new pcb (VERY IMPORTANT)
-    	tcp_setup();
-
-        /* create an ip */
-        struct ip4_addr ip;
-        IP4_ADDR(&ip, 192,241,245,161);    //IP of example.com
-
-        /* now connect */
-        tcp_connect(weather_pcb, &ip, 80, connectCallback);
-
-    	tcp_send_packet();
+		tcp_get_weather_update();
 	}
 
     PRINTF("Daylight savings: %d\r\n", timeinfo->tm_isdst);
@@ -668,12 +680,16 @@ int main(void)
     sntp_init();
     PRINTF("DONE\r\n");
 
+/** TCP weather setup ****************************************************************************************/
+
+    tcp_get_weather_update();
+
+/** Main loop ************************************************************************************************/
+
     PRINTF("Waiting for display to finish refreshing... ");
 	einkWaitUntilIdle();
 	einkSetRefreshMode(FAST_REFRESH);
 	PRINTF("DONE\r\n");
-
-/** Main loop ************************************************************************************************/
 
     while (1)
     {
