@@ -92,8 +92,8 @@ unsigned char imgBuffer[5808];
 unsigned char colorBuffer[5808];
 
 struct tcp_pcb * weather_pcb;
-char* weather_description = NULL;
-char* temperature = NULL;
+char weather_str[14];
+char temperature_str[7];
 /*******************************************************************************
  * Code
  ******************************************************************************/
@@ -305,30 +305,34 @@ err_t tcpRecvCallback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
         PRINTF("Number of pbufs %d\r\n", pbuf_clen(p));
         //PRINTF("Contents of pbuf %s\r\n", (char *)p->payload);
 
-        char* weather_description_base = (char*)p->payload;
-
         //The following blocks of code must NOT be re-arranged, because strtok will shorten the string as it works
 
         char* temperature_base = (char*)p->payload;
 
         // get temperature (F)
-        temperature = strstr(temperature_base, "\"temp\":");
+        char* temperature = strstr(temperature_base, "\"temp\":");
         if (temperature != NULL) {
             temperature += sizeof(char) * strlen("\"temp\":");
 
             strtok(temperature,",");
-            if (temperature != NULL)
+            if (temperature != NULL) {
             	PRINTF("%s\r\n", temperature);
+            	strncpy(temperature_str, temperature, 6); // assume temperatures are below 999.999 degrees F
+            }
+
         }
 
-        weather_description = strstr(weather_description_base, "\"main\":\"");
+        char* weather_description_base = (char*)p->payload;
+        char* weather_description = strstr(weather_description_base, "\"main\":\"");
 
         // get weather description (make this into a function)
         if (weather_description != NULL) {
             weather_description += sizeof(char) * strlen("\"main\":\"");
             strtok(weather_description,"\"");
-            if (weather_description != NULL)
-              PRINTF("%s\r\n", weather_description);
+            if (weather_description != NULL) {
+            	PRINTF("%s\r\n", weather_description);
+            	strncpy(weather_str, weather_description, 14);
+            }
         }
     }
 
@@ -427,16 +431,19 @@ void updateData() {
 		//draw time
 		paintDrawString(imgBuffer, -3, 20, timeBuf, &Font12, COLORED, digitScale);
 
-		//TODO: Something's wrong here. The PRINTF calls in the tcp callback show the expected values for "main" and "temp", but for some reason here it frequently picks up parts of some Sonos packet instead, injected into the middle of the JSON I'm trying to read
+		//TODO: Replace the double with a manually rounded int. Seems that sprintf doesn't support floats and I wanted to round it to an int anyway
 
 		//draw weather description
 		//sprintf(temperatureBuf, "%sF", temperature);
-		PRINTF("%s\r\n", temperature);
-		paintDrawString(imgBuffer, -2, 90, temperature, &Font12, COLORED, 5);
+		PRINTF("%s\r\n", temperature_str);
+		double temperature_float = atof(temperature_str);
+		//PRINTF("%f\r\n", 1.1);
+		sprintf(temperatureBuf, "%s F", temperature_str);
+		paintDrawString(imgBuffer, -2, 90, temperatureBuf, &Font12, COLORED, 5);
 
 		//draw weather description
-		PRINTF("%s\r\n", weather_description);
-		paintDrawString(imgBuffer, 4, 140, weather_description, &Font12, COLORED, 3);
+		PRINTF("%s\r\n", weather_str);
+		paintDrawString(imgBuffer, 4, 140, weather_str, &Font12, COLORED, 3);
 
 
 		//draw time drop shadow
