@@ -235,7 +235,7 @@ bool isDst(struct tm* time_info) {
 
 	int month = time_info->tm_mon + 1; // +1 to make 1 represent January
 	int day = time_info->tm_mday;
-	int dow = time_info->tm_wday + 1; // +1 to make 1 represent Sunday
+	int dow = time_info->tm_wday; // +1 to make 1 represent Sunday
 
 	// January, February, and December are out.
 	if (month < 3 || month > 11)
