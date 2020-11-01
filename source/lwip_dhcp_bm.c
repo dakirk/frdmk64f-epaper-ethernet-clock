@@ -94,8 +94,9 @@ unsigned char imgBuffer[5808];
 unsigned char colorBuffer[5808];
 
 struct tcp_pcb * weather_pcb;
-char icon_str[14];
+char icon_str[5];
 char temperature_str[7];
+char weather_str[45];
 /*******************************************************************************
  * Code
  ******************************************************************************/
@@ -335,16 +336,29 @@ err_t tcpRecvCallback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
 
         }
 
+        char* weather_icon_base = (char*)p->payload;
+        char* weather_icon = strstr(weather_icon_base, "\"icon\":\"");
+
+        // get weather description (make this into a function)
+        if (weather_icon != NULL) {
+            weather_icon += sizeof(char) * strlen("\"icon\":\"");
+            strtok(weather_icon,"\"");
+            if (weather_icon != NULL) {
+            	PRINTF("%s\r\n", weather_icon);
+            	strncpy(icon_str, weather_icon, 7);
+            }
+        }
+
         char* weather_description_base = (char*)p->payload;
-        char* weather_description = strstr(weather_description_base, "\"icon\":\"");
+        char* weather_description = strstr(weather_description_base, "\"description\":\"");
 
         // get weather description (make this into a function)
         if (weather_description != NULL) {
-            weather_description += sizeof(char) * strlen("\"icon\":\"");
+            weather_description += sizeof(char) * strlen("\"description\":\"");
             strtok(weather_description,"\"");
             if (weather_description != NULL) {
             	PRINTF("%s\r\n", weather_description);
-            	strncpy(icon_str, weather_description, 14);
+            	strncpy(weather_str, weather_description, 45);
             }
         }
     }
@@ -529,9 +543,9 @@ void updateData() {
 
 		//draw weather description
 		PRINTF("%s\r\n", icon_str);
-		//paintDrawString(imgBuffer, 4, 140, weather_str, &Font12, COLORED, 3);
+		PRINTF("%s\r\n", weather_str);
 		drawWeather(imgBuffer, colorBuffer, 0, 80, icon_str);
-
+		paintDrawString(imgBuffer, 4, 150, weather_str, &Font12, COLORED, 1);
 
 		//draw time drop shadow
 		//paintDrawString(colorBuffer, -1, 22, timeBuf, &Font12, COLORED, digitScale);
