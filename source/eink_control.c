@@ -543,6 +543,35 @@ void paintDrawChar(unsigned char* image, int x, int y, char ascii_char, sFONT* f
     }
 }
 
+// Draws an 80x80 pixel icon
+void paintDrawIcon(unsigned char* image, int x, int y, const unsigned char* icon, int colored) {
+    int i, j, k, l;
+
+    const int dimension = 80;
+
+    const unsigned char* ptr = icon;
+    const int scale = 1;
+
+    for (j = 0; j < dimension; j++) {
+        for (i = 0; i < dimension; i++) {
+            if (pgm_read_byte(ptr) & (0x80 >> (i % 8))) {
+
+            	for (k = i*scale; k < (i+1)*scale; k++) {
+            		for (l = j*scale; l < (j+1)*scale; l++) {
+                        paintDrawPixel(image, x + k, y + l, colored, ROTATE_270);
+            		}
+            	}
+            }
+            if (i % 8 == 7) {
+                ptr++;
+            }
+        }
+        if (dimension % 8 != 0) {
+            ptr++;
+        }
+    }
+}
+
 /**
 *  @brief: this displays a string on the frame buffer but not refresh
 */

@@ -81,6 +81,7 @@ void paintClear(unsigned char* image, int colored);
 void paintDrawAbsolutePixel(unsigned char* image, int x, int y, int colored);
 void paintDrawPixel(unsigned char* image, int x, int y, int colored, int rotate);
 void paintDrawChar(unsigned char* image, int x, int y, char ascii_char, sFONT* font, int colored, int scale);
+void paintDrawIcon(unsigned char* image, int x, int y, const unsigned char* icon, int colored);
 void paintDrawString(unsigned char* image, int x, int y, const char* text, sFONT* font, int colored, int scale);
 //void paintDrawQRCode(unsigned char* image, const char* text, int scale);
 

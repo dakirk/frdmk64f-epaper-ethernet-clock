@@ -43,7 +43,9 @@
 
 #include "eink_control.h"
 #include "font12.cpp"
+#include "icons.cpp"
 #include "api_key.h"
+
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
@@ -92,7 +94,7 @@ unsigned char imgBuffer[5808];
 unsigned char colorBuffer[5808];
 
 struct tcp_pcb * weather_pcb;
-char weather_str[14];
+char icon_str[14];
 char temperature_str[7];
 /*******************************************************************************
  * Code
@@ -334,15 +336,15 @@ err_t tcpRecvCallback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
         }
 
         char* weather_description_base = (char*)p->payload;
-        char* weather_description = strstr(weather_description_base, "\"main\":\"");
+        char* weather_description = strstr(weather_description_base, "\"icon\":\"");
 
         // get weather description (make this into a function)
         if (weather_description != NULL) {
-            weather_description += sizeof(char) * strlen("\"main\":\"");
+            weather_description += sizeof(char) * strlen("\"icon\":\"");
             strtok(weather_description,"\"");
             if (weather_description != NULL) {
             	PRINTF("%s\r\n", weather_description);
-            	strncpy(weather_str, weather_description, 14);
+            	strncpy(icon_str, weather_description, 14);
             }
         }
     }
@@ -397,6 +399,68 @@ void tcp_get_weather_update() {
     tcp_connect(weather_pcb, &ip, 80, connectCallback);
 
 	tcp_send_packet();
+}
+
+void drawWeather(unsigned char* blackBuf, unsigned char* redBuf, int x, int y, const char* iconCode) {
+
+	if (strcmp(iconCode, "01d") == 0) {
+		paintDrawIcon(redBuf, x, y, sun, COLORED);
+	}
+
+	else if (strcmp(iconCode, "01n") == 0) {
+		paintDrawIcon(blackBuf, x, y, sun, COLORED);
+	}
+
+	else if (strcmp(iconCode, "02d") == 0) {
+		paintDrawIcon(blackBuf, x, y, partcloudy_cloud, COLORED);
+		paintDrawIcon(redBuf, x, y, partcloudy_sun, COLORED);
+	}
+
+	else if (strcmp(iconCode, "02n") == 0) {
+		paintDrawIcon(blackBuf, x, y, partcloudy_cloud, COLORED);
+		paintDrawIcon(blackBuf, x, y, partcloudy_sun, COLORED);
+	}
+
+	else if (strcmp(iconCode, "03d") == 0 || strcmp(iconCode, "03n") == 0) {
+		paintDrawIcon(blackBuf, x, y, partcloudy_cloud, COLORED);
+	}
+
+	else if (strcmp(iconCode, "04d") == 0 || strcmp(iconCode, "04n") == 0) {
+		paintDrawIcon(blackBuf, x, y, cloudy, COLORED);
+	}
+
+	else if (strcmp(iconCode, "09d") == 0 || strcmp(iconCode, "09n") == 0) {
+		paintDrawIcon(blackBuf, x, y, rain, COLORED);
+	}
+
+	else if (strcmp(iconCode, "10d") == 0) {
+		paintDrawIcon(blackBuf, x, y, sunrainy_cloud, COLORED);
+		paintDrawIcon(redBuf, x, y, sunrainy_sun, COLORED);
+	}
+
+	else if (strcmp(iconCode, "10n") == 0) {
+		paintDrawIcon(blackBuf, x, y, sunrainy_cloud, COLORED);
+		paintDrawIcon(blackBuf, x, y, sunrainy_sun, COLORED);
+	}
+
+	else if (strcmp(iconCode, "11d") == 0 || strcmp(iconCode, "11n") == 0) {
+		paintDrawIcon(blackBuf, x, y, thunder_cloud, COLORED);
+		paintDrawIcon(redBuf, x, y, thunder_bolt, COLORED);
+	}
+
+	else if (strcmp(iconCode, "13d") == 0 || strcmp(iconCode, "13n") == 0) {
+		paintDrawIcon(blackBuf, x, y, snow, COLORED);
+	}
+
+	else if (strcmp(iconCode, "50d") == 0 || strcmp(iconCode, "50n") == 0) {
+		paintDrawIcon(blackBuf, x, y, fog, COLORED);
+	}
+
+	// Using red snow as a placeholder for missing weather icon
+	else {
+		paintDrawIcon(redBuf, x, y, snow, COLORED);
+	}
+
 }
 
 /*!
@@ -461,19 +525,20 @@ void updateData() {
 		int temperature_num = round(atof(temperature_str));
 		PRINTF("%d\r\n", temperature_num);
 		sprintf(temperatureBuf, "%d F", temperature_num);
-		paintDrawString(imgBuffer, -2, 90, temperatureBuf, &Font12, COLORED, 5);
+		paintDrawString(imgBuffer, 80, 93, temperatureBuf, &Font12, COLORED, 5);
 
 		//draw weather description
-		PRINTF("%s\r\n", weather_str);
-		paintDrawString(imgBuffer, 4, 140, weather_str, &Font12, COLORED, 3);
+		PRINTF("%s\r\n", icon_str);
+		//paintDrawString(imgBuffer, 4, 140, weather_str, &Font12, COLORED, 3);
+		drawWeather(imgBuffer, colorBuffer, 0, 80, icon_str);
 
 
 		//draw time drop shadow
-		paintDrawString(colorBuffer, -1, 22, timeBuf, &Font12, COLORED, digitScale);
-		paintDrawString(colorBuffer, -3, 20, timeBuf, &Font12, UNCOLORED, digitScale);
+		//paintDrawString(colorBuffer, -1, 22, timeBuf, &Font12, COLORED, digitScale);
+		//paintDrawString(colorBuffer, -3, 20, timeBuf, &Font12, UNCOLORED, digitScale);
 
 		//push to display
-		einkDisplayFrameFromBufferNonBlocking(imgBuffer, NULL);
+		einkDisplayFrameFromBufferNonBlocking(imgBuffer, colorBuffer);
 		paintClear(imgBuffer, UNCOLORED);
 		paintClear(colorBuffer, UNCOLORED);
 
