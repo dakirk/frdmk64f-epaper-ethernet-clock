@@ -479,18 +479,43 @@ void tcp_setup()
 
 }
 
-void tcp_get_weather_update() {
+void tcp_get_weather_update(ip4_addr_t ip) {
 	// calls tcp_new to create new pcb (VERY IMPORTANT)
 	tcp_setup();
 
     /* create an ip */
-    struct ip4_addr ip;
-    IP4_ADDR(&ip, 192,241,245,161);    //IP of example.com
+    //struct ip4_addr ip;
+    //IP4_ADDR(&ip, 192,241,245,161);    //IP of example.com
 
     /* now connect */
     tcp_connect(weather_pcb, &ip, 80, connectCallback);
 
 	tcp_send_packet();
+}
+
+void dns_callback(const char *name, const ip_addr_t *ipaddr, void *callback_arg) {
+	PRINTF("IPv4 Address for %s     : %u.%u.%u.%u\r\n", name, ((u8_t *)ipaddr)[0], ((u8_t *)ipaddr)[1],
+	           ((u8_t *)ipaddr)[2], ((u8_t *)ipaddr)[3]);
+
+	tcp_get_weather_update(*ipaddr);
+}
+
+void dns_send_http_request(const char* url) {
+	ip_addr_t resolved;
+	err_t errMessage = dns_gethostbyname(url, &resolved, dns_callback, NULL);
+
+    switch(errMessage) {
+		case ERR_OK:
+			PRINTF("DNS OK - IP cached\r\n");
+			tcp_get_weather_update(resolved);
+			break;
+		case ERR_INPROGRESS:
+			PRINTF("DNS IN PROGRESS - using callback function\r\n");
+			break;
+		default:
+			PRINTF("DNS ERROR: %d\r\n", errMessage);
+			break;
+    }
 }
 
 /*!
@@ -647,7 +672,7 @@ void updateData() {
 
 	// At 30 seconds, attempt to get weather data
 	if (timeinfo->tm_sec == 30) {
-		tcp_get_weather_update();
+		dns_send_http_request("api.openweathermap.org");
 	}
 
     PRINTF("Daylight savings: %d\r\n", timeinfo->tm_isdst);
@@ -772,9 +797,9 @@ int main(void)
     sntp_init();
     PRINTF("DONE\r\n");
 
-/** TCP weather setup ****************************************************************************************/
+/** TCP/DNS weather setup ****************************************************************************************/
 
-    tcp_get_weather_update();
+    dns_send_http_request("api.openweathermap.org");
 
 /** Main loop ************************************************************************************************/
 
