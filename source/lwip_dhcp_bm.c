@@ -43,7 +43,7 @@
 
 #include "eink_control.h"
 #include "font12.cpp"
-#include "icons.cpp"
+#include "icons.h"
 #include "api_key.h"
 
 /*******************************************************************************
@@ -234,6 +234,11 @@ const char* getMonth(int month) {
 }
 
 // copied from https://stackoverflow.com/questions/5590429/calculating-daylight-saving-time-from-only-date/5590518
+/*!
+ * @brief Function to handle daylight savings time adjustment, assuming US DST settings.
+ * @param time_info the tm struct holding the current time
+ * @return true if daylight savings is active, false otherwise
+ */
 bool isDst(struct tm* time_info) {
 
 	int month = time_info->tm_mon + 1; // +1 to make 1 represent January
@@ -277,6 +282,79 @@ struct tm* getLocalizedTime(time_t utc, int timezone) {
 	local_time = utc + (3600 * (timezone + isDst(gmt_info)));
 
 	return gmtime(&local_time);
+}
+
+/*!
+ * @brief Prints DHCP status of the interface when it has changed from last status.
+ *
+ * @param netif network interface structure
+ */
+static int print_dhcp_state(struct netif *netif)
+{
+    static u8_t dhcp_last_state = DHCP_STATE_OFF;
+    struct dhcp *dhcp           = netif_dhcp_data(netif);
+
+    if (dhcp == NULL)
+    {
+        dhcp_last_state = DHCP_STATE_OFF;
+    }
+    else if (dhcp_last_state != dhcp->state)
+    {
+        dhcp_last_state = dhcp->state;
+
+        PRINTF(" DHCP state       : ");
+        switch (dhcp_last_state)
+        {
+            case DHCP_STATE_OFF:
+                PRINTF("OFF");
+                break;
+            case DHCP_STATE_REQUESTING:
+                PRINTF("REQUESTING");
+                break;
+            case DHCP_STATE_INIT:
+                PRINTF("INIT");
+                break;
+            case DHCP_STATE_REBOOTING:
+                PRINTF("REBOOTING");
+                break;
+            case DHCP_STATE_REBINDING:
+                PRINTF("REBINDING");
+                break;
+            case DHCP_STATE_RENEWING:
+                PRINTF("RENEWING");
+                break;
+            case DHCP_STATE_SELECTING:
+                PRINTF("SELECTING");
+                break;
+            case DHCP_STATE_INFORMING:
+                PRINTF("INFORMING");
+                break;
+            case DHCP_STATE_CHECKING:
+                PRINTF("CHECKING");
+                break;
+            case DHCP_STATE_BOUND:
+                PRINTF("BOUND");
+                break;
+            case DHCP_STATE_BACKING_OFF:
+                PRINTF("BACKING_OFF");
+                break;
+            default:
+                PRINTF("%u", dhcp_last_state);
+                assert(0);
+                break;
+
+        }
+        PRINTF("\r\n");
+
+        if (dhcp_last_state == DHCP_STATE_BOUND)
+        {
+            PRINTF("\r\n IPv4 Address     : %s\r\n", ipaddr_ntoa(&netif->ip_addr));
+            PRINTF(" IPv4 Subnet mask : %s\r\n", ipaddr_ntoa(&netif->netmask));
+            PRINTF(" IPv4 Gateway     : %s\r\n\r\n", ipaddr_ntoa(&netif->gw));
+            return 0; //finished
+        }
+    }
+    return 1; //not finished
 }
 
 err_t tcp_send_packet(void)
@@ -415,6 +493,14 @@ void tcp_get_weather_update() {
 	tcp_send_packet();
 }
 
+/*!
+ * @brief Draw a weather icon based on which icon string we receive
+ * @param blackBuf the black bitmap
+ * @param redBuf the red bitmap
+ * @param x the starting x coordinate for the icon
+ * @param y the starting y coordinate for the icon
+ * @param iconCode the icon string to be interpreted
+ */
 void drawWeather(unsigned char* blackBuf, unsigned char* redBuf, int x, int y, const char* iconCode) {
 
 	if (strcmp(iconCode, "01d") == 0) {
@@ -559,86 +645,13 @@ void updateData() {
 		g_systickCounter = 0;
 	}
 
-	// At 30 seconds, attempt to get weather data (TEMPORARY)
+	// At 30 seconds, attempt to get weather data
 	if (timeinfo->tm_sec == 30) {
 		tcp_get_weather_update();
 	}
 
     PRINTF("Daylight savings: %d\r\n", timeinfo->tm_isdst);
 	PRINTF("%02d:%02d:%02d\r\n", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
-}
-
-/*!
- * @brief Prints DHCP status of the interface when it has changed from last status.
- *
- * @param netif network interface structure
- */
-static int print_dhcp_state(struct netif *netif)
-{
-    static u8_t dhcp_last_state = DHCP_STATE_OFF;
-    struct dhcp *dhcp           = netif_dhcp_data(netif);
-
-    if (dhcp == NULL)
-    {
-        dhcp_last_state = DHCP_STATE_OFF;
-    }
-    else if (dhcp_last_state != dhcp->state)
-    {
-        dhcp_last_state = dhcp->state;
-
-        PRINTF(" DHCP state       : ");
-        switch (dhcp_last_state)
-        {
-            case DHCP_STATE_OFF:
-                PRINTF("OFF");
-                break;
-            case DHCP_STATE_REQUESTING:
-                PRINTF("REQUESTING");
-                break;
-            case DHCP_STATE_INIT:
-                PRINTF("INIT");
-                break;
-            case DHCP_STATE_REBOOTING:
-                PRINTF("REBOOTING");
-                break;
-            case DHCP_STATE_REBINDING:
-                PRINTF("REBINDING");
-                break;
-            case DHCP_STATE_RENEWING:
-                PRINTF("RENEWING");
-                break;
-            case DHCP_STATE_SELECTING:
-                PRINTF("SELECTING");
-                break;
-            case DHCP_STATE_INFORMING:
-                PRINTF("INFORMING");
-                break;
-            case DHCP_STATE_CHECKING:
-                PRINTF("CHECKING");
-                break;
-            case DHCP_STATE_BOUND:
-                PRINTF("BOUND");
-                break;
-            case DHCP_STATE_BACKING_OFF:
-                PRINTF("BACKING_OFF");
-                break;
-            default:
-                PRINTF("%u", dhcp_last_state);
-                assert(0);
-                break;
-
-        }
-        PRINTF("\r\n");
-
-        if (dhcp_last_state == DHCP_STATE_BOUND)
-        {
-            PRINTF("\r\n IPv4 Address     : %s\r\n", ipaddr_ntoa(&netif->ip_addr));
-            PRINTF(" IPv4 Subnet mask : %s\r\n", ipaddr_ntoa(&netif->netmask));
-            PRINTF(" IPv4 Gateway     : %s\r\n\r\n", ipaddr_ntoa(&netif->gw));
-            return 0; //finished
-        }
-    }
-    return 1; //not finished
 }
 
 /*!
