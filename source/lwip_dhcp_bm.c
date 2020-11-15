@@ -554,18 +554,18 @@ void drawWeather(unsigned char* blackBuf, unsigned char* redBuf, int x, int y, c
 		paintDrawIcon(blackBuf, x, y, cloudy, COLORED);
 	}
 
-	else if (strcmp(iconCode, "09d") == 0 || strcmp(iconCode, "09n") == 0) {
-		paintDrawIcon(blackBuf, x, y, rain, COLORED);
-	}
-
-	else if (strcmp(iconCode, "10d") == 0) {
+	else if (strcmp(iconCode, "09d") == 0) {
 		paintDrawIcon(blackBuf, x, y, sunrainy_cloud, COLORED);
 		paintDrawIcon(redBuf, x, y, sunrainy_sun, COLORED);
 	}
 
-	else if (strcmp(iconCode, "10n") == 0) {
+	else if (strcmp(iconCode, "09n") == 0) {
 		paintDrawIcon(blackBuf, x, y, sunrainy_cloud, COLORED);
 		paintDrawIcon(blackBuf, x, y, sunrainy_sun, COLORED);
+	}
+
+	else if (strcmp(iconCode, "10d") == 0 || strcmp(iconCode, "10n") == 0) {
+		paintDrawIcon(blackBuf, x, y, rain, COLORED);
 	}
 
 	else if (strcmp(iconCode, "11d") == 0 || strcmp(iconCode, "11n") == 0) {
@@ -656,7 +656,9 @@ void updateData() {
 		PRINTF("%s\r\n", icon_str);
 		PRINTF("%s\r\n", weather_str);
 		drawWeather(imgBuffer, colorBuffer, 0, 80, icon_str);
-		paintDrawString(imgBuffer, 4, 150, weather_str, &Font12, COLORED, 1);
+
+		int weather_str_scale = strlen(weather_str) <= 18 ? 2 : 1;
+		paintDrawString(imgBuffer, 4, 150, weather_str, &Font12, COLORED, weather_str_scale);
 
 		//draw time drop shadow
 		//paintDrawString(colorBuffer, -1, 22, timeBuf, &Font12, COLORED, digitScale);
@@ -675,7 +677,7 @@ void updateData() {
 		dns_send_http_request("api.openweathermap.org");
 	}
 
-    PRINTF("Daylight savings: %d\r\n", timeinfo->tm_isdst);
+    //PRINTF("Daylight savings: %d\r\n", timeinfo->tm_isdst);
 	PRINTF("%02d:%02d:%02d\r\n", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 }
 
