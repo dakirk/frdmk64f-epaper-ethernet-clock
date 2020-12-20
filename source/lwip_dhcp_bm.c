@@ -87,7 +87,6 @@
  * Variables
  ******************************************************************************/
 
-volatile uint32_t g_systickCounter;
 volatile bool g_SecsFlag        = false;
 
 unsigned char imgBuffer[5808];
@@ -668,8 +667,6 @@ void updateData() {
 		einkDisplayFrameFromBufferNonBlocking(imgBuffer, colorBuffer);
 		paintClear(imgBuffer, UNCOLORED);
 		paintClear(colorBuffer, UNCOLORED);
-
-		g_systickCounter = 0;
 	}
 
 	// At 30 seconds, attempt to get weather data
