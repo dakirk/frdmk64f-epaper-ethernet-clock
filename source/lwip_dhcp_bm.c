@@ -417,7 +417,7 @@ err_t tcpRecvCallback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
         char* weather_icon_base = (char*)p->payload;
         char* weather_icon = strstr(weather_icon_base, "\"icon\":\"");
 
-        // get weather description (make this into a function)
+        // get weather description (make this into a function?)
         if (weather_icon != NULL) {
             weather_icon += sizeof(char) * strlen("\"icon\":\"");
             strtok(weather_icon,"\"");
@@ -430,7 +430,7 @@ err_t tcpRecvCallback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
         char* weather_description_base = (char*)p->payload;
         char* weather_description = strstr(weather_description_base, "\"description\":\"");
 
-        // get weather description (make this into a function)
+        // get weather icon
         if (weather_description != NULL) {
             weather_description += sizeof(char) * strlen("\"description\":\"");
             strtok(weather_description,"\"");
