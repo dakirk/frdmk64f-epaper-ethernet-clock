@@ -71,7 +71,8 @@
 #define BOARD_SW_IRQ BOARD_SW3_IRQ
 #define BOARD_SW_IRQ_HANDLER BOARD_SW3_IRQ_HANDLER
 
-#define API_URL "api.openweathermap.org"
+#define API_URL "api.openweathermap.org" //"192.168.0.118" (local server for api testing)
+#define API_PORT 80
 
 
 #ifndef EXAMPLE_NETIF_INIT_FN
@@ -98,6 +99,9 @@ struct tcp_pcb * weather_pcb;
 char icon_str[5];
 char temperature_str[7];
 char weather_str[45];
+
+int fail_counter;
+
 /*******************************************************************************
  * Code
  ******************************************************************************/
@@ -408,6 +412,16 @@ err_t tcpRecvCallback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
         return ERR_OK;
     } else {
         PRINTF("Number of pbufs %d\r\n", pbuf_clen(p));
+
+        // If the response is not a 200, discard the payload
+        if (strncmp((char *)p->payload, "HTTP/1.1 200", 12) != 0) {
+        	fail_counter++;
+        	PRINTF("A non-200 response was received");
+        	pbuf_free(p);
+
+        	return ERR_OK;
+        }
+
         //PRINTF("Contents of pbuf %s\r\n", (char *)p->payload);
 
         //The following blocks of code must NOT be re-arranged, because strtok will shorten the string as it works
@@ -456,7 +470,7 @@ err_t tcpRecvCallback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
 
     pbuf_free(p);
 
-    return 0;
+    return ERR_OK;
 }
 
 /*!
@@ -513,11 +527,18 @@ void tcp_get_weather_update(ip4_addr_t ip) {
     //IP4_ADDR(&ip, 192,241,245,161);    //IP of example.com
 
     /* now connect */
-    tcp_connect(weather_pcb, &ip, 80, connectCallback);
+    tcp_connect(weather_pcb, &ip, API_PORT, connectCallback);
 
 	tcp_send_packet();
 }
 
+/*!
+ * @brief Callback function triggered by a new DNS request for a non-cached address.
+ * If this is not called, dns_send_http_request will call tcp_get_weather_update with the cached address instead.
+ * @param name The original URL
+ * @param ipaddr The IP address returned by the DNS request
+ * @param callback_arg Extra arguments for the callback (unused)
+ */
 void dns_callback(const char *name, const ip_addr_t *ipaddr, void *callback_arg) {
 	PRINTF("IPv4 Address for %s     : %u.%u.%u.%u\r\n", name, ((u8_t *)ipaddr)[0], ((u8_t *)ipaddr)[1],
 	           ((u8_t *)ipaddr)[2], ((u8_t *)ipaddr)[3]);
@@ -526,7 +547,7 @@ void dns_callback(const char *name, const ip_addr_t *ipaddr, void *callback_arg)
 }
 
 /*!
- * @brief Function to set DNS request in motion. Supports both cached IP addresses and new ones.
+ * @brief Function to set DNS request (and then TCP weather request) in motion. Supports both cached IP addresses and new ones.
  * @param url The URL to decode
  */
 void dns_send_http_request(const char* url) {
@@ -689,6 +710,11 @@ void updateData() {
 		int weather_str_scale = strlen(weather_str) <= 18 ? 2 : 1;
 		paintDrawString(imgBuffer, 4, 150, weather_str, &Font12, COLORED, weather_str_scale);
 
+		//draw tcp request failure counter - max 7 digits (hopefully won't come to that)
+		char failBuf[8];
+		sprintf(failBuf, "%d", fail_counter);
+		paintDrawString(imgBuffer, 240, 167, failBuf, &Font12, COLORED, 1);
+
 		//draw time drop shadow
 		//paintDrawString(colorBuffer, -1, 22, timeBuf, &Font12, COLORED, digitScale);
 		//paintDrawString(colorBuffer, -3, 20, timeBuf, &Font12, UNCOLORED, digitScale);
@@ -701,7 +727,7 @@ void updateData() {
 
 	// At 30 seconds, attempt to get weather data
 	if (timeinfo->tm_sec == 30) {
-		dns_send_http_request("api.openweathermap.org");
+		dns_send_http_request(API_URL);
 	}
 
     //PRINTF("Daylight savings: %d\r\n", timeinfo->tm_isdst);
@@ -828,6 +854,7 @@ int main(void)
 
 /** TCP/DNS weather setup ****************************************************************************************/
 
+    fail_counter = 0;
     dns_send_http_request(API_URL);
 
 /** Main loop ************************************************************************************************/
