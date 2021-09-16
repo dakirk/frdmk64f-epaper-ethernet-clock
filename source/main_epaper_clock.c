@@ -23,6 +23,8 @@
 #include "lwip/ip_addr.h"
 #include "lwip/init.h"
 #include "lwip/dhcp.h"
+#include "lwip/dns.h"
+#include "lwip/tcp.h"
 #include "lwip/apps/sntp.h"
 #include "lwip/prot/dhcp.h"
 #include "netif/ethernet.h"
@@ -41,6 +43,9 @@
 
 #include "eink_control.h"
 #include "font12.cpp"
+#include "icons.h"
+#include "api_key.h"
+
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
@@ -66,6 +71,8 @@
 #define BOARD_SW_IRQ BOARD_SW3_IRQ
 #define BOARD_SW_IRQ_HANDLER BOARD_SW3_IRQ_HANDLER
 
+#define API_URL "api.openweathermap.org"
+
 
 #ifndef EXAMPLE_NETIF_INIT_FN
 /*! @brief Network interface initialization function. */
@@ -82,11 +89,15 @@
  * Variables
  ******************************************************************************/
 
-volatile uint32_t g_systickCounter;
 volatile bool g_SecsFlag        = false;
+
 unsigned char imgBuffer[5808];
 unsigned char colorBuffer[5808];
 
+struct tcp_pcb * weather_pcb;
+char icon_str[5];
+char temperature_str[7];
+char weather_str[45];
 /*******************************************************************************
  * Code
  ******************************************************************************/
@@ -130,6 +141,17 @@ void SysTick_Handler(void)
     {
         eink_systickCounter--;
     }
+}
+
+/*!
+ * @brief Simple utility function to round numbers (intended for temperatures), since this implementation of math.h doesn't seem to have one
+ */
+int round(double x)
+{
+    if (x < 0.0)
+        return (int)(x - 0.5);
+    else
+        return (int)(x + 0.5);
 }
 
 /*!
@@ -214,12 +236,17 @@ const char* getMonth(int month) {
 	}
 }
 
-// copied from https://stackoverflow.com/questions/5590429/calculating-daylight-saving-time-from-only-date/5590518
+/*!
+ * @brief Function to handle daylight savings time adjustment, assuming US DST settings.
+ * Copied from https://stackoverflow.com/questions/5590429/calculating-daylight-saving-time-from-only-date/5590518
+ * @param time_info the tm struct holding the current time
+ * @return true if daylight savings is active, false otherwise
+ */
 bool isDst(struct tm* time_info) {
 
 	int month = time_info->tm_mon + 1; // +1 to make 1 represent January
 	int day = time_info->tm_mday;
-	int dow = time_info->tm_wday + 1; // +1 to make 1 represent Sunday
+	int dow = time_info->tm_wday; // +1 to make 1 represent Sunday
 
 	// January, February, and December are out.
 	if (month < 3 || month > 11)
@@ -240,6 +267,8 @@ bool isDst(struct tm* time_info) {
 	return previousSunday <= 0;
 }
 
+// TCP code adapted from here: https://stackoverflow.com/questions/26192758/how-can-i-send-a-simple-http-request-with-a-lwip-stack
+
 /*!
  * @brief Gets localized time, based on a given timezone (I'm ignoring the localtime function
  * because I've been unable to get the TZ environment variable to be read properly so far)
@@ -259,80 +288,7 @@ struct tm* getLocalizedTime(time_t utc, int timezone) {
 }
 
 /*!
- * @brief Callback method to get time from the RTC and draw the display with time and date
- */
-void updateTime() {
-
-    rtc_datetime_t date;
-    RTC_GetDatetime(RTC, &date);
-
-	uint32_t timestamp = (time_t)RTC_ConvertDatetimeToSeconds(&date);
-
-	struct tm* timeinfo = getLocalizedTime(timestamp, EST);
-
-	// if it's a new minute, refresh the screen
-	if (timeinfo->tm_sec == 0)
-	{
-		PRINTF("Updating screen\r\n");
-
-		int digitScale = 7;
-
-		// at midnight, do a full refresh
-		if (timeinfo->tm_hour == 0 && timeinfo->tm_min == 0) {
-			einkSetRefreshMode(FULL_REFRESH);
-			einkClearFrame();
-			einkDisplayFrameFromSRAMBlocking();
-			einkSetRefreshMode(FAST_REFRESH);
-		}
-		// clear screen every hour
-		else if (timeinfo->tm_min % 60 == 0) {
-			einkClearFrame();
-			einkDisplayFrameFromSRAMBlocking();
-			einkDisplayFrameFromSRAMBlocking();
-			einkDisplayFrameFromSRAMBlocking();
-		}
-
-		char timeBuf[6];
-		char dateBuf[20];
-
-		int twelveHourTime = getTwelveHourTime(timeinfo->tm_hour);
-
-		sprintf(timeBuf, "%d:%02d", twelveHourTime, timeinfo->tm_min);
-		sprintf(dateBuf, "%s, %s %02d", getDayOfWeek(timeinfo->tm_wday), getMonth(timeinfo->tm_mon), timeinfo->tm_mday);
-
-		paintDrawString(imgBuffer,
-						strlen(timeBuf) * 7 * digitScale - 9,
-						25, (timeinfo->tm_hour > 11 ? "PM" : "AM"),
-						&Font12,
-						COLORED,
-						2
-		);
-
-		//draw date info
-		paintDrawString(imgBuffer, 4, 0, dateBuf, &Font12, COLORED, 2);
-
-		//draw time
-		paintDrawString(imgBuffer, -3, 20, timeBuf, &Font12, COLORED, digitScale);
-
-		//draw time drop shadow
-		paintDrawString(colorBuffer, -1, 22, timeBuf, &Font12, COLORED, digitScale);
-		paintDrawString(colorBuffer, -3, 20, timeBuf, &Font12, UNCOLORED, digitScale);
-
-		//push to display
-		einkDisplayFrameFromBufferNonBlocking(imgBuffer, NULL);
-		paintClear(imgBuffer, UNCOLORED);
-		paintClear(colorBuffer, UNCOLORED);
-
-		g_systickCounter = 0;
-	}
-
-    PRINTF("Daylight savings: %d\r\n", timeinfo->tm_isdst);
-	PRINTF("%02d:%02d:%02d\r\n", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
-}
-
-/*!
  * @brief Prints DHCP status of the interface when it has changed from last status.
- *
  * @param netif network interface structure
  */
 static int print_dhcp_state(struct netif *netif)
@@ -401,6 +357,355 @@ static int print_dhcp_state(struct netif *netif)
         }
     }
     return 1; //not finished
+}
+
+/*!
+ * @brief Sets up a HTTP request to the weather API
+ */
+err_t tcp_send_packet(void)
+{
+    char api_string_buf[200];
+
+    sprintf(api_string_buf, "GET /data/2.5/weather?q=Boston&units=imperial&appid=%s HTTP/1.0\r\nHost: openweathermap.org\r\n\r\n ", weather_key);
+    uint32_t len = strlen(api_string_buf);
+
+    /* push to buffer */
+    err_t error = tcp_write(weather_pcb, api_string_buf, len, TCP_WRITE_FLAG_COPY);
+
+    if (error) {
+        PRINTF("ERROR: Code: %d (tcp_send_packet :: tcp_write)\r\n", error);
+        return 1;
+    }
+
+    /* now send */
+    error = tcp_output(weather_pcb);
+    if (error) {
+        PRINTF("ERROR: Code: %d (tcp_send_packet :: tcp_output)\r\n", error);
+    }
+    return error;
+}
+
+/*!
+ * @brief Callback triggered when a TCP (in this case, HTTP) packet is sent. Currently used for debug only.
+ */
+err_t tcpSendCallback(void *arg, struct tcp_pcb *tpcb, u16_t len) {
+    PRINTF("Packet sent!\r\n");
+    return 0;
+}
+
+/*!
+ * @brief Callback triggered when a TCP (in this case, HTTP) packet is received. Currently used to parse a JSON string
+ * by looking for very specific substrings matching the keys of the temperature, weather description, and icon.
+ * TODO: Import a full JSON parser to support more complex data (like JSON lists or nested objects) and avoid possible bugs.
+ */
+err_t tcpRecvCallback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
+{
+    PRINTF("Data received.\r\n");
+    if (p == NULL) {
+        PRINTF("The remote host closed the connection.\r\n");
+        PRINTF("Now I'm closing the connection.\r\n");
+        tcp_close(tpcb);
+        return ERR_OK;
+    } else {
+        PRINTF("Number of pbufs %d\r\n", pbuf_clen(p));
+        //PRINTF("Contents of pbuf %s\r\n", (char *)p->payload);
+
+        //The following blocks of code must NOT be re-arranged, because strtok will shorten the string as it works
+
+        char* temperature_base = (char*)p->payload;
+
+        // get temperature (F)
+        char* temperature = strstr(temperature_base, "\"temp\":");
+        if (temperature != NULL) {
+            temperature += sizeof(char) * strlen("\"temp\":");
+
+            strtok(temperature,",");
+            if (temperature != NULL) {
+            	PRINTF("%s\r\n", temperature);
+            	strncpy(temperature_str, temperature, 6); // assume temperatures are below 999.999 degrees F
+            }
+
+        }
+
+        char* weather_icon_base = (char*)p->payload;
+        char* weather_icon = strstr(weather_icon_base, "\"icon\":\"");
+
+        // get weather description (make this into a function?)
+        if (weather_icon != NULL) {
+            weather_icon += sizeof(char) * strlen("\"icon\":\"");
+            strtok(weather_icon,"\"");
+            if (weather_icon != NULL) {
+            	PRINTF("%s\r\n", weather_icon);
+            	strncpy(icon_str, weather_icon, 7);
+            }
+        }
+
+        char* weather_description_base = (char*)p->payload;
+        char* weather_description = strstr(weather_description_base, "\"description\":\"");
+
+        // get weather icon
+        if (weather_description != NULL) {
+            weather_description += sizeof(char) * strlen("\"description\":\"");
+            strtok(weather_description,"\"");
+            if (weather_description != NULL) {
+            	PRINTF("%s\r\n", weather_description);
+            	strncpy(weather_str, weather_description, 45);
+            }
+        }
+    }
+
+    pbuf_free(p);
+
+    return 0;
+}
+
+/*!
+ * @brief Callback triggered when the TCP stack encounters an error. Currently used for logging only.
+ */
+void tcpErrorHandler(void *arg, err_t err) {
+	PRINTF("Error???\r\n");
+}
+
+/*!
+ * @brief Callback triggered when the TCP stack establishes a connection. Currently used for logging only.
+ */
+err_t connectCallback(void *arg, struct tcp_pcb *tpcb, err_t err)
+{
+    PRINTF("Connection Established.\r\n");
+    //PRINTF("Now sending a packet\r\n");
+    //tcp_send_packet();
+    return 0;
+}
+
+/*!
+ * @brief Function to establish a TCP connection and set up the callbacks.
+ */
+void tcp_setup()
+{
+    uint32_t data = 0xdeadbeef;
+
+    /* create the control block */
+    weather_pcb = tcp_new();    //testpcb is a global struct tcp_pcb
+                            // as defined by lwIP
+
+    /* dummy data to pass to callbacks*/
+
+    tcp_arg(weather_pcb, &data);
+
+    /* register callbacks with the pcb */
+
+    tcp_err(weather_pcb, tcpErrorHandler);
+    tcp_recv(weather_pcb, tcpRecvCallback);
+    tcp_sent(weather_pcb, tcpSendCallback);
+
+}
+
+/*!
+ * @brief Function to set in motion a weather API request. Uses IP address returned by DNS.
+ * @param ip the IP address to send the request to, obtained from DNS
+ */
+void tcp_get_weather_update(ip4_addr_t ip) {
+	// calls tcp_new to create new pcb (VERY IMPORTANT)
+	tcp_setup();
+
+    /* create an ip */
+    //struct ip4_addr ip;
+    //IP4_ADDR(&ip, 192,241,245,161);    //IP of example.com
+
+    /* now connect */
+    tcp_connect(weather_pcb, &ip, 80, connectCallback);
+
+	tcp_send_packet();
+}
+
+void dns_callback(const char *name, const ip_addr_t *ipaddr, void *callback_arg) {
+	PRINTF("IPv4 Address for %s     : %u.%u.%u.%u\r\n", name, ((u8_t *)ipaddr)[0], ((u8_t *)ipaddr)[1],
+	           ((u8_t *)ipaddr)[2], ((u8_t *)ipaddr)[3]);
+
+	tcp_get_weather_update(*ipaddr);
+}
+
+/*!
+ * @brief Function to set DNS request in motion. Supports both cached IP addresses and new ones.
+ * @param url The URL to decode
+ */
+void dns_send_http_request(const char* url) {
+	ip_addr_t resolved;
+	err_t errMessage = dns_gethostbyname(url, &resolved, dns_callback, NULL);
+
+    switch(errMessage) {
+		case ERR_OK:
+			PRINTF("DNS OK - IP cached\r\n");
+			tcp_get_weather_update(resolved);
+			break;
+		case ERR_INPROGRESS:
+			PRINTF("DNS IN PROGRESS - using callback function\r\n");
+			break;
+		default:
+			PRINTF("DNS ERROR: %d\r\n", errMessage);
+			break;
+    }
+}
+
+/*!
+ * @brief Draw a weather icon based on which icon string we receive
+ * @param blackBuf the black bitmap
+ * @param redBuf the red bitmap
+ * @param x the starting x coordinate for the icon
+ * @param y the starting y coordinate for the icon
+ * @param iconCode the icon string to be interpreted
+ */
+void drawWeather(unsigned char* blackBuf, unsigned char* redBuf, int x, int y, const char* iconCode) {
+
+	if (strcmp(iconCode, "01d") == 0) {
+		paintDrawIcon(redBuf, x, y, sun, COLORED);
+	}
+
+	else if (strcmp(iconCode, "01n") == 0) {
+		paintDrawIcon(blackBuf, x, y, moon, COLORED);
+	}
+
+	else if (strcmp(iconCode, "02d") == 0) {
+		paintDrawIcon(blackBuf, x, y, partcloudy_cloud, COLORED);
+		paintDrawIcon(redBuf, x, y, partcloudy_sun, COLORED);
+	}
+
+	else if (strcmp(iconCode, "02n") == 0) {
+		paintDrawIcon(blackBuf, x, y, partcloudy_cloud, COLORED);
+		paintDrawIcon(blackBuf, x, y, partcloudy_moon, COLORED);
+	}
+
+	else if (strcmp(iconCode, "03d") == 0 || strcmp(iconCode, "03n") == 0) {
+		paintDrawIcon(blackBuf, x, y, partcloudy_cloud, COLORED);
+	}
+
+	else if (strcmp(iconCode, "04d") == 0 || strcmp(iconCode, "04n") == 0) {
+		paintDrawIcon(blackBuf, x, y, cloudy, COLORED);
+	}
+
+	else if (strcmp(iconCode, "09d") == 0) {
+		paintDrawIcon(blackBuf, x, y, lightrain_cloud, COLORED);
+		paintDrawIcon(redBuf, x, y, lightrain_sun, COLORED);
+	}
+
+	else if (strcmp(iconCode, "09n") == 0) {
+		paintDrawIcon(blackBuf, x, y, lightrain_cloud, COLORED);
+		paintDrawIcon(blackBuf, x, y, lightrain_moon, COLORED);
+	}
+
+	else if (strcmp(iconCode, "10d") == 0 || strcmp(iconCode, "10n") == 0) {
+		paintDrawIcon(blackBuf, x, y, rain, COLORED);
+	}
+
+	else if (strcmp(iconCode, "11d") == 0 || strcmp(iconCode, "11n") == 0) {
+		paintDrawIcon(blackBuf, x, y, thunder_cloud, COLORED);
+		paintDrawIcon(redBuf, x, y, thunder_bolt, COLORED);
+	}
+
+	else if (strcmp(iconCode, "13d") == 0 || strcmp(iconCode, "13n") == 0) {
+		paintDrawIcon(blackBuf, x, y, snow, COLORED);
+	}
+
+	else if (strcmp(iconCode, "50d") == 0 || strcmp(iconCode, "50n") == 0) {
+		paintDrawIcon(blackBuf, x, y, fog, COLORED);
+	}
+
+	// Using red snow as a placeholder for missing weather icon
+	else {
+		paintDrawIcon(redBuf, x, y, snow, COLORED);
+	}
+
+}
+
+/*!
+ * @brief Callback function to get time from the RTC and draw the display with time and date
+ */
+void updateData() {
+
+    rtc_datetime_t date;
+    RTC_GetDatetime(RTC, &date);
+
+	uint32_t timestamp = (time_t)RTC_ConvertDatetimeToSeconds(&date);
+
+	struct tm* timeinfo = getLocalizedTime(timestamp, EST);
+
+	// if it's a new minute, refresh the screen
+	if (timeinfo->tm_sec == 0)
+	{
+		PRINTF("Updating screen\r\n");
+
+		int digitScale = 7;
+
+		// at midnight, do a full refresh
+		if (timeinfo->tm_hour == 0 && timeinfo->tm_min == 0) {
+			einkSetRefreshMode(FULL_REFRESH);
+			einkClearFrame();
+			einkDisplayFrameFromSRAMBlocking();
+			einkSetRefreshMode(FAST_REFRESH);
+		}
+		// clear screen every hour
+		else if (timeinfo->tm_min % 60 == 0) {
+			einkClearFrame();
+			einkDisplayFrameFromSRAMBlocking();
+			einkDisplayFrameFromSRAMBlocking();
+			einkDisplayFrameFromSRAMBlocking();
+		}
+
+		char timeBuf[6];
+		char dateBuf[20];
+		char temperatureBuf[10];
+
+		int twelveHourTime = getTwelveHourTime(timeinfo->tm_hour);
+
+		sprintf(timeBuf, "%d:%02d", twelveHourTime, timeinfo->tm_min);
+		sprintf(dateBuf, "%s, %s %02d", getDayOfWeek(timeinfo->tm_wday), getMonth(timeinfo->tm_mon), timeinfo->tm_mday);
+
+		paintDrawString(imgBuffer,
+						strlen(timeBuf) * 7 * digitScale - 9,
+						25, (timeinfo->tm_hour > 11 ? "PM" : "AM"),
+						&Font12,
+						COLORED,
+						2
+		);
+
+		//draw date info
+		paintDrawString(imgBuffer, 4, 0, dateBuf, &Font12, COLORED, 2);
+
+		//draw time
+		paintDrawString(imgBuffer, -3, 20, timeBuf, &Font12, COLORED, digitScale);
+
+		//draw weather description
+		PRINTF("%s\r\n", temperature_str);
+		int temperature_num = round(atof(temperature_str));
+		PRINTF("%d\r\n", temperature_num);
+		sprintf(temperatureBuf, "%d F", temperature_num);
+		paintDrawString(imgBuffer, 80, 93, temperatureBuf, &Font12, COLORED, 5);
+
+		//draw weather description
+		PRINTF("%s\r\n", icon_str);
+		PRINTF("%s\r\n", weather_str);
+		drawWeather(imgBuffer, colorBuffer, 0, 80, icon_str);
+
+		int weather_str_scale = strlen(weather_str) <= 18 ? 2 : 1;
+		paintDrawString(imgBuffer, 4, 150, weather_str, &Font12, COLORED, weather_str_scale);
+
+		//draw time drop shadow
+		//paintDrawString(colorBuffer, -1, 22, timeBuf, &Font12, COLORED, digitScale);
+		//paintDrawString(colorBuffer, -3, 20, timeBuf, &Font12, UNCOLORED, digitScale);
+
+		//push to display
+		einkDisplayFrameFromBufferNonBlocking(imgBuffer, colorBuffer);
+		paintClear(imgBuffer, UNCOLORED);
+		paintClear(colorBuffer, UNCOLORED);
+	}
+
+	// At 30 seconds, attempt to get weather data
+	if (timeinfo->tm_sec == 30) {
+		dns_send_http_request("api.openweathermap.org");
+	}
+
+    //PRINTF("Daylight savings: %d\r\n", timeinfo->tm_isdst);
+	PRINTF("%02d:%02d:%02d\r\n", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 }
 
 /*!
@@ -521,12 +826,16 @@ int main(void)
     sntp_init();
     PRINTF("DONE\r\n");
 
+/** TCP/DNS weather setup ****************************************************************************************/
+
+    dns_send_http_request(API_URL);
+
+/** Main loop ************************************************************************************************/
+
     PRINTF("Waiting for display to finish refreshing... ");
 	einkWaitUntilIdle();
 	einkSetRefreshMode(FAST_REFRESH);
 	PRINTF("DONE\r\n");
-
-/** Main loop ************************************************************************************************/
 
     while (1)
     {
@@ -542,7 +851,7 @@ int main(void)
         if (g_SecsFlag) {
 
         	g_SecsFlag = false;
-        	updateTime();
+        	updateData();
         }
     }
 }
