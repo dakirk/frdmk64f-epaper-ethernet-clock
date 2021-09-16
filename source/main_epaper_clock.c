@@ -562,7 +562,7 @@ void drawWeather(unsigned char* blackBuf, unsigned char* redBuf, int x, int y, c
 	}
 
 	else if (strcmp(iconCode, "01n") == 0) {
-		paintDrawIcon(blackBuf, x, y, sun, COLORED);
+		paintDrawIcon(blackBuf, x, y, moon, COLORED);
 	}
 
 	else if (strcmp(iconCode, "02d") == 0) {
@@ -572,7 +572,7 @@ void drawWeather(unsigned char* blackBuf, unsigned char* redBuf, int x, int y, c
 
 	else if (strcmp(iconCode, "02n") == 0) {
 		paintDrawIcon(blackBuf, x, y, partcloudy_cloud, COLORED);
-		paintDrawIcon(blackBuf, x, y, partcloudy_sun, COLORED);
+		paintDrawIcon(blackBuf, x, y, partcloudy_moon, COLORED);
 	}
 
 	else if (strcmp(iconCode, "03d") == 0 || strcmp(iconCode, "03n") == 0) {
@@ -584,13 +584,13 @@ void drawWeather(unsigned char* blackBuf, unsigned char* redBuf, int x, int y, c
 	}
 
 	else if (strcmp(iconCode, "09d") == 0) {
-		paintDrawIcon(blackBuf, x, y, sunrainy_cloud, COLORED);
-		paintDrawIcon(redBuf, x, y, sunrainy_sun, COLORED);
+		paintDrawIcon(blackBuf, x, y, lightrain_cloud, COLORED);
+		paintDrawIcon(redBuf, x, y, lightrain_sun, COLORED);
 	}
 
 	else if (strcmp(iconCode, "09n") == 0) {
-		paintDrawIcon(blackBuf, x, y, sunrainy_cloud, COLORED);
-		paintDrawIcon(blackBuf, x, y, sunrainy_sun, COLORED);
+		paintDrawIcon(blackBuf, x, y, lightrain_cloud, COLORED);
+		paintDrawIcon(blackBuf, x, y, lightrain_moon, COLORED);
 	}
 
 	else if (strcmp(iconCode, "10d") == 0 || strcmp(iconCode, "10n") == 0) {
