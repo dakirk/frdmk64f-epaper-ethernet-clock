@@ -71,6 +71,8 @@
 #define BOARD_SW_IRQ BOARD_SW3_IRQ
 #define BOARD_SW_IRQ_HANDLER BOARD_SW3_IRQ_HANDLER
 
+#define API_URL "api.openweathermap.org"
+
 
 #ifndef EXAMPLE_NETIF_INIT_FN
 /*! @brief Network interface initialization function. */
@@ -141,7 +143,9 @@ void SysTick_Handler(void)
     }
 }
 
-// Simple utility function to round numbers (intended for temperatures), since this implementation of math.h doesn't seem to have one
+/*!
+ * @brief Simple utility function to round numbers (intended for temperatures), since this implementation of math.h doesn't seem to have one
+ */
 int round(double x)
 {
     if (x < 0.0)
@@ -232,9 +236,9 @@ const char* getMonth(int month) {
 	}
 }
 
-// copied from https://stackoverflow.com/questions/5590429/calculating-daylight-saving-time-from-only-date/5590518
 /*!
  * @brief Function to handle daylight savings time adjustment, assuming US DST settings.
+ * Copied from https://stackoverflow.com/questions/5590429/calculating-daylight-saving-time-from-only-date/5590518
  * @param time_info the tm struct holding the current time
  * @return true if daylight savings is active, false otherwise
  */
@@ -285,7 +289,6 @@ struct tm* getLocalizedTime(time_t utc, int timezone) {
 
 /*!
  * @brief Prints DHCP status of the interface when it has changed from last status.
- *
  * @param netif network interface structure
  */
 static int print_dhcp_state(struct netif *netif)
@@ -356,6 +359,9 @@ static int print_dhcp_state(struct netif *netif)
     return 1; //not finished
 }
 
+/*!
+ * @brief Sets up a HTTP request to the weather API
+ */
 err_t tcp_send_packet(void)
 {
     char api_string_buf[200];
@@ -379,11 +385,19 @@ err_t tcp_send_packet(void)
     return error;
 }
 
+/*!
+ * @brief Callback triggered when a TCP (in this case, HTTP) packet is sent. Currently used for debug only.
+ */
 err_t tcpSendCallback(void *arg, struct tcp_pcb *tpcb, u16_t len) {
     PRINTF("Packet sent!\r\n");
     return 0;
 }
 
+/*!
+ * @brief Callback triggered when a TCP (in this case, HTTP) packet is received. Currently used to parse a JSON string
+ * by looking for very specific substrings matching the keys of the temperature, weather description, and icon.
+ * TODO: Import a full JSON parser to support more complex data (like JSON lists or nested objects) and avoid possible bugs.
+ */
 err_t tcpRecvCallback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
 {
     PRINTF("Data received.\r\n");
@@ -445,11 +459,16 @@ err_t tcpRecvCallback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
     return 0;
 }
 
+/*!
+ * @brief Callback triggered when the TCP stack encounters an error. Currently used for logging only.
+ */
 void tcpErrorHandler(void *arg, err_t err) {
 	PRINTF("Error???\r\n");
 }
 
-/* connection established callback, err is unused and only return 0 */
+/*!
+ * @brief Callback triggered when the TCP stack establishes a connection. Currently used for logging only.
+ */
 err_t connectCallback(void *arg, struct tcp_pcb *tpcb, err_t err)
 {
     PRINTF("Connection Established.\r\n");
@@ -458,6 +477,9 @@ err_t connectCallback(void *arg, struct tcp_pcb *tpcb, err_t err)
     return 0;
 }
 
+/*!
+ * @brief Function to establish a TCP connection and set up the callbacks.
+ */
 void tcp_setup()
 {
     uint32_t data = 0xdeadbeef;
@@ -478,6 +500,10 @@ void tcp_setup()
 
 }
 
+/*!
+ * @brief Function to set in motion a weather API request. Uses IP address returned by DNS.
+ * @param ip the IP address to send the request to, obtained from DNS
+ */
 void tcp_get_weather_update(ip4_addr_t ip) {
 	// calls tcp_new to create new pcb (VERY IMPORTANT)
 	tcp_setup();
@@ -499,6 +525,10 @@ void dns_callback(const char *name, const ip_addr_t *ipaddr, void *callback_arg)
 	tcp_get_weather_update(*ipaddr);
 }
 
+/*!
+ * @brief Function to set DNS request in motion. Supports both cached IP addresses and new ones.
+ * @param url The URL to decode
+ */
 void dns_send_http_request(const char* url) {
 	ip_addr_t resolved;
 	err_t errMessage = dns_gethostbyname(url, &resolved, dns_callback, NULL);
@@ -588,7 +618,7 @@ void drawWeather(unsigned char* blackBuf, unsigned char* redBuf, int x, int y, c
 }
 
 /*!
- * @brief Callback method to get time from the RTC and draw the display with time and date
+ * @brief Callback function to get time from the RTC and draw the display with time and date
  */
 void updateData() {
 
@@ -798,7 +828,7 @@ int main(void)
 
 /** TCP/DNS weather setup ****************************************************************************************/
 
-    dns_send_http_request("api.openweathermap.org");
+    dns_send_http_request(API_URL);
 
 /** Main loop ************************************************************************************************/
 
