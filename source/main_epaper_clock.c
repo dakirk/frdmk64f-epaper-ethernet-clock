@@ -100,8 +100,6 @@ char icon_str[5];
 char temperature_str[7];
 char weather_str[45];
 
-int fail_counter;
-
 /*******************************************************************************
  * Code
  ******************************************************************************/
@@ -415,7 +413,6 @@ err_t tcpRecvCallback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
 
         // If the response is not a 200, discard the payload
         if (strncmp((char *)p->payload, "HTTP/1.1 200", 12) != 0) {
-        	fail_counter++;
         	PRINTF("A non-200 response was received");
         	pbuf_free(p);
 
@@ -710,11 +707,6 @@ void updateData() {
 		int weather_str_scale = strlen(weather_str) <= 18 ? 2 : 1;
 		paintDrawString(imgBuffer, 4, 150, weather_str, &Font12, COLORED, weather_str_scale);
 
-		//draw tcp request failure counter - max 7 digits (hopefully won't come to that)
-		char failBuf[8];
-		sprintf(failBuf, "%d", fail_counter);
-		paintDrawString(imgBuffer, 240, 167, failBuf, &Font12, COLORED, 1);
-
 		//draw time drop shadow
 		//paintDrawString(colorBuffer, -1, 22, timeBuf, &Font12, COLORED, digitScale);
 		//paintDrawString(colorBuffer, -3, 20, timeBuf, &Font12, UNCOLORED, digitScale);
@@ -854,7 +846,6 @@ int main(void)
 
 /** TCP/DNS weather setup ****************************************************************************************/
 
-    fail_counter = 0;
     dns_send_http_request(API_URL);
 
 /** Main loop ************************************************************************************************/
